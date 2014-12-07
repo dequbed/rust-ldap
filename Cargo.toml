@@ -1,0 +1,5 @@
+[package]
+
+name = "ldap"
+version = "0.0.1"
+authors = ["Dean4Devil <dean4devil@chaingamers.com>"]
