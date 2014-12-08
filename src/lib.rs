@@ -55,6 +55,18 @@ pub fn ldap_simple_bind(ldbox: Box<LDAP>, dn: &str, password: &str) -> int
     }
 }
 
+pub fn ldap_simple_bind_s(ldbox: Box<LDAP>, dn: &str, password: &str) -> int
+{
+    let c_dn = dn.to_c_str();
+    let c_password = password.to_c_str();
+    unsafe
+    {
+        let ld: *const LDAP = mem::transmute(ldbox);
+        let res = ffi::ldap_simple_bind_s(ld, c_dn.as_ptr(), c_password.as_ptr());
+        return res as int;
+    }
+}
+
 // Take ownership of the LDAP session handle and invalidate it
 pub fn ldap_unbind(ldbox: Box<LDAP>) -> int
 {

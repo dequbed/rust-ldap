@@ -19,6 +19,7 @@ extern
     pub fn ldap_initialize(ld: *const LDAP, uri: *const c_char) -> c_int;
     pub fn ldap_bind(ld: *const LDAP, dn: *const c_char, password: *const c_char, method: c_int) -> c_int;
     pub fn ldap_simple_bind(ld: *const LDAP, dn: *const c_char, password: *const c_char) -> c_int;
+    pub fn ldap_simple_bind_s(ld: *const LDAP, dn: *const c_char, password: *const c_char) -> c_int;
     pub fn ldap_unbind(ld: *const LDAP) -> c_int;
     pub fn ldap_search(ld: *const LDAP, base: *const c_char, scope: c_int, filter: *const c_char, attrs: &[*const c_char], attrsonly: c_int) -> c_int;
 }
