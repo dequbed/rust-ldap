@@ -1,6 +1,6 @@
 extern crate libc;
 
-use libc::{c_char, c_int};
+use libc::{c_char, c_int, c_void};
 use std::mem;
 
 pub use ffi::LDAP;
@@ -87,6 +87,16 @@ pub fn ldap_search(ldbox: &Box<LDAP>, base: &str, scope: int, filter: &str, attr
     {
         let ld: *const LDAP = mem::transmute(ldbox);
         let res = ffi::ldap_search(ld, c_base.as_ptr(), scope as c_int, c_filter.as_ptr(), c_attrs.as_slice(), attrsonly as c_int);
+        return res as int;
+    }
+}
+
+pub fn ldap_set_option(ldbox: &Box<LDAP>, option: int, invalue: &int) -> int
+{
+    unsafe
+    {
+        let ld: *const LDAP = mem::transmute(ldbox);
+        let res = ffi::ldap_set_option(ld, option as c_int, &invalue as *const c_void);
         return res as int;
     }
 }

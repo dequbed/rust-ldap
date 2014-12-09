@@ -1,4 +1,4 @@
-use libc::{c_char, c_int};
+use libc::{c_char, c_int, c_void};
 
 #[repr(C)]
 pub struct LDAP
@@ -22,4 +22,5 @@ extern
     pub fn ldap_simple_bind_s(ld: *const LDAP, dn: *const c_char, password: *const c_char) -> c_int;
     pub fn ldap_unbind(ld: *const LDAP) -> c_int;
     pub fn ldap_search(ld: *const LDAP, base: *const c_char, scope: c_int, filter: *const c_char, attrs: &[*const c_char], attrsonly: c_int) -> c_int;
+    pub fn ldap_set_option(ld: *const LDAP, option: c_int, invalue: *const c_void); 
 }
