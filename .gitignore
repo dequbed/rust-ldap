@@ -1,2 +1,5 @@
-/target
-/Cargo.lock
+# Ignore vim swapfiles
+*.swp
+
+# Ignore build directory
+/build/
