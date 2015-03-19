@@ -16,5 +16,10 @@ fn main()
         panic!("Bind panicked!");
     }
 
-    ldap.destroy();
+    let mut search_result = ldap.search("ou=Benutzer,dc=ad,dc=ggnet", 2, "(objectClass=*)", "*", 0).unwrap();
+    println!("{}", search_result.first_entry(&mut ldap).unwrap().get_dn(&mut ldap));
+    
+
+    ldap.unbind();
+
 }
