@@ -18,6 +18,11 @@ impl LDAPMessage
         LDAPMessage { ptr: ptr::null_mut() }
     }
 
+    pub fn from_ptr(ptr: *mut ffi::LDAPMessage) -> LDAPMessage
+    {
+        LDAPMessage { ptr: ptr }
+    }
+
     pub fn count_entries(&mut self, ld: &mut LDAP) -> i32
     {
         unsafe { ffi::ldap_count_entries(ld.get_ptr(), self.ptr) as i32 }

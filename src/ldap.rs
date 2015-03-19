@@ -87,14 +87,18 @@ impl LDAP
         let c_filter = CString::new(filter).unwrap();
         let c_attrs = Box::new(CString::new(attrs).unwrap().as_ptr());
 
-        let mut msg = LDAPMessage::new();
+        let mut msg: *mut ffi::LDAPMessage = ptr::null_mut();
         let res: i32;
         unsafe
         {
-            res = ffi::ldap_search_s(self.ptr, c_base.as_ptr(), scope as libc::c_int, c_filter.as_ptr(), boxed::into_raw(c_attrs), 0, &mut msg.get_ptr()) as i32;
+            res = ffi::ldap_search_s(self.ptr, c_base.as_ptr(), scope as libc::c_int, c_filter.as_ptr(), boxed::into_raw(c_attrs), 0, &mut msg) as i32;
         }
 
-        if res == 0 && !msg.is_null() { return Some(msg); }
+        if res == 0
+        {
+            let mut lmsg = LDAPMessage::from_ptr(msg);
+            return Some(lmsg);
+        }
 
         println!("{}", ldap_err2string(res));
 
