@@ -81,17 +81,24 @@ impl LDAP
         false
     }
 
-    pub fn search(&mut self, base: &str, scope: isize, filter: &str, attrs: &str, limit: i32) -> Option<LDAPMessage>
+    pub fn search(&mut self, base: &str, scope: isize, filter: &str, attrs: &[&str], limit: i32) -> Option<LDAPMessage>
     {
         let c_base = CString::new(base).unwrap();
         let c_filter = CString::new(filter).unwrap();
-        let c_attrs = Box::new(CString::new(attrs).unwrap().as_ptr());
+        //let c_attrs = Box::new(CString::new(attrs).unwrap().as_ptr());
+
+        // If only one attribute is requested, libldap will segfault
+        // TODO: Debug this!
+        if attrs.len() == 1 { return None; }
+
+        let c_attrs: Vec<*const libc::c_char> = attrs.iter().map(|x| CString::new(*x).unwrap().as_ptr()).collect();
+        let attr_slice = c_attrs.as_slice();
 
         let mut msg: *mut ffi::LDAPMessage = ptr::null_mut();
         let res: i32;
         unsafe
         {
-            res = ffi::ldap_search_s(self.ptr, c_base.as_ptr(), scope as libc::c_int, c_filter.as_ptr(), boxed::into_raw(c_attrs), 0, &mut msg) as i32;
+            res = ffi::ldap_search_s(self.ptr, c_base.as_ptr(), scope as libc::c_int, c_filter.as_ptr(), attr_slice.as_ptr(), 0, &mut msg) as i32;
         }
 
         if res == 0
