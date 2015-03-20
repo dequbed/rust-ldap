@@ -1,6 +1,8 @@
 use std::ptr;
 use std::str;
-use std::ffi::CStr;
+use std::mem;
+use std::slice;
+use std::ffi::{CStr, CString};
 
 use ffi;
 use ldap::LDAP;
@@ -56,6 +58,27 @@ impl LDAPMessage
             let res = CStr::from_ptr(c_res);
             return str::from_utf8(res.to_bytes()).unwrap().to_string();
         }
+    }
+
+    pub fn count_values(&mut self) -> i32
+    {
+        0
+    }
+
+    pub fn get_values(&mut self, ld: &mut LDAP, attrs: &str) -> String
+    {
+        let c_attrs = CString::new(attrs).unwrap();
+        let res_slice: &[u8];
+        let val: &str;
+
+        unsafe
+        {
+            let doubleptr = ffi::ldap_get_values_len(ld.get_ptr(), self.ptr, c_attrs.as_ptr());
+            res_slice = mem::transmute(slice::from_raw_parts((**doubleptr).bv_val, (**doubleptr).bv_len as usize));
+        }
+
+        str::from_utf8(res_slice).unwrap().to_string()
+        
     }
 
     pub fn is_null(&self) -> bool

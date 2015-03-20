@@ -56,6 +56,9 @@ extern
     pub fn ldap_first_entry(ld: *mut LDAP, msg: *mut LDAPMessage) -> *mut LDAPMessage;
     pub fn ldap_next_entry(ld: *mut LDAP, msg: *mut LDAPMessage) -> *mut LDAPMessage;
 
+    pub fn ldap_count_values_len(vals: *mut *mut berval) -> c_int;
+    pub fn ldap_get_values_len(ld: *mut LDAP, entry: *mut LDAPMessage, target: *const c_char) -> *mut *mut berval;
+
     pub fn ldap_get_dn(ld: *mut LDAP, msg: *mut LDAPMessage) -> *const c_char;
 
     pub fn ldap_memfree(ld: *mut LDAP);
