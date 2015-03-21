@@ -130,3 +130,4 @@ pub fn ldap_err2string(err: i32) -> String
 }
 
 
+unsafe impl Send for LDAP { }
