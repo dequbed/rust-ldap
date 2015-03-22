@@ -91,23 +91,26 @@ impl LDAP
         // TODO: Debug this!
         if attrs.len() == 1 { return None; }
 
-        let c_attrs: Vec<*const libc::c_char> = attrs.iter().map(|x| CString::new(*x).unwrap().as_ptr()).collect();
-        let attr_slice = c_attrs.as_slice();
+        // We have a slice of &str, we need a *mut *const c_char
+        // Now we have a Vector of CStrings
+        let cstring_vec: Vec<CString> = attrs.iter().map(|x| CString::new(*x).unwrap()).collect();
+        let c_ptr_vec: Vec<*const libc::c_char> = cstring_vec.iter().map(|x| (*x).as_ptr()).collect();
+        let c_ptr_slice: &[*const libc::c_char] = c_ptr_vec.as_slice();
 
         let mut msg: *mut ffi::LDAPMessage = ptr::null_mut();
         let res: i32;
         unsafe
         {
-            res = ffi::ldap_search_s(self.ptr, c_base.as_ptr(), scope as libc::c_int, c_filter.as_ptr(), attr_slice.as_ptr(), 0, &mut msg) as i32;
+            res = ffi::ldap_search_s(self.ptr, c_base.as_ptr(), scope as libc::c_int, c_filter.as_ptr(), c_ptr_slice.as_ptr(), 0, &mut msg) as i32;
         }
 
-        if res == 0
+        if res == 0 && !msg.is_null()
         {
             let mut lmsg = LDAPMessage::from_ptr(msg);
             return Some(lmsg);
         }
 
-        println!("{}", ldap_err2string(res));
+        mem::drop(cstring_vec);
 
         None
     }
