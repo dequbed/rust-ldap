@@ -60,25 +60,35 @@ impl LDAPMessage
         }
     }
 
-    pub fn count_values(&mut self) -> i32
+    pub fn count_values(&mut self, ld: &mut LDAP) -> i32
     {
         0
     }
 
-    pub fn get_values(&mut self, ld: &mut LDAP, attrs: &str) -> String
+    pub fn get_values(&mut self, ld: &mut LDAP, attrs: &str) -> Vec<String>
     {
         let c_attrs = CString::new(attrs).unwrap();
-        let res_slice: &[u8];
+        let mut ptr_slice: &[*mut ffi::berval];
         let val: &str;
 
         unsafe
         {
             let doubleptr = ffi::ldap_get_values_len(ld.get_ptr(), self.ptr, c_attrs.as_ptr());
-            res_slice = mem::transmute(slice::from_raw_parts((**doubleptr).bv_val, (**doubleptr).bv_len as usize));
+            ptr_slice = mem::transmute(slice::from_raw_parts(doubleptr, ffi::ldap_count_values_len(doubleptr) as usize));
         }
 
-        str::from_utf8(res_slice).unwrap().to_string()
-        
+        let mut string_vec: Vec<String> = Vec::new();
+        for ptr in ptr_slice
+        {
+            let res_slice: &[u8];
+            unsafe
+            {
+                res_slice = mem::transmute(slice::from_raw_parts((**ptr).bv_val, (**ptr).bv_len as usize));
+            }
+            string_vec.push(str::from_utf8(res_slice).unwrap().to_string());
+        }
+
+        string_vec
     }
 
     pub fn is_null(&self) -> bool
