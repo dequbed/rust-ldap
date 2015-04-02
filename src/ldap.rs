@@ -25,13 +25,13 @@ impl LDAP
     pub fn initialize(&mut self, url: &str) -> bool
     {
         let c_url = CString::new(url).unwrap();
-        
+
         let res: i32;
         unsafe
         {
             res = ffi::ldap_initialize(&mut self.ptr, c_url.as_ptr()) as i32;
         }
-        
+
         if res == 0 { return true; }
 
         false
@@ -98,10 +98,14 @@ impl LDAP
         let c_ptr_slice: &[*const libc::c_char] = c_ptr_vec.as_slice();
 
         let mut msg: *mut ffi::LDAPMessage = ptr::null_mut();
+        let mut sctr: *mut ffi::LDAPControl = ptr::null_mut();
+        let mut cctr: *mut ffi::LDAPControl = ptr::null_mut();
+        let timeval: *mut ffi::timeval = ptr::null_mut();
         let res: i32;
         unsafe
         {
-            res = ffi::ldap_search_s(self.ptr, c_base.as_ptr(), scope as libc::c_int, c_filter.as_ptr(), c_ptr_slice.as_ptr(), 0, &mut msg) as i32;
+            // res = ffi::ldap_search_s(self.ptr, c_base.as_ptr(), scope as libc::c_int, c_filter.as_ptr(), c_ptr_slice.as_ptr(), 0, &mut msg) as i32;
+            res = ffi::ldap_search_ext_s(self.ptr, c_base.as_ptr(), scope as libc::c_int, c_filter.as_ptr(), c_ptr_slice.as_ptr(), 0, &mut sctr, &mut cctr, timeval, 0, &mut msg) as i32;
         }
 
         if res == 0 && !msg.is_null()
