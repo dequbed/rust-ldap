@@ -4,3 +4,6 @@
 
 # Ignore build directory
 /build/
+/target/
+
+Cargo.lock

@@ -76,7 +76,8 @@ impl LDAP
         {
 
             let option: Box<libc::c_void> = mem::transmute(Box::new(ffi::LDAP_VERSION3));
-            ffi::ldap_set_option(self.ptr, ffi::LDAP_OPT_PROTOCOL_VERSION as libc::c_int, boxed::into_raw(option));
+            //ffi::ldap_set_option(self.ptr, ffi::LDAP_OPT_PROTOCOL_VERSION as libc::c_int, boxed::into_raw(option));
+            ffi::ldap_set_option(self.ptr, ffi::LDAP_OPT_PROTOCOL_VERSION as libc::c_int, mem::transmute(option));
         }
         false
     }
@@ -95,7 +96,7 @@ impl LDAP
         // Now we have a Vector of CStrings
         let cstring_vec: Vec<CString> = attrs.iter().map(|x| CString::new(*x).unwrap()).collect();
         let c_ptr_vec: Vec<*const libc::c_char> = cstring_vec.iter().map(|x| (*x).as_ptr()).collect();
-        let c_ptr_slice: &[*const libc::c_char] = c_ptr_vec.as_slice();
+        let c_ptr_slice: &[*const libc::c_char] = &c_ptr_vec[..];
 
         let mut msg: *mut ffi::LDAPMessage = ptr::null_mut();
         let mut sctr: *mut ffi::LDAPControl = ptr::null_mut();

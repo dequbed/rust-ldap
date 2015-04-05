@@ -71,7 +71,7 @@ pub enum timeval { }
 pub enum LDAPMessage { }
 
 #[repr(C)]
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct LDAPControl
 {
     pub ldctl_oid: *mut c_char,
@@ -84,7 +84,7 @@ impl ::std::default::Default for LDAPControl
 }
 
 #[repr(C)]
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct berval
 {
     pub bv_len: c_ulong,
