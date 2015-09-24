@@ -7,3 +7,5 @@
 /target/
 
 Cargo.lock
+
+/rfcs/
