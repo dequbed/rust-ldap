@@ -1,9 +1,9 @@
 [package]
 name = "ldap"
-version = "0.0.1"
+version = "0.0.2"
 authors = [ "Dean Davis <dean4devil@chaingamers.com>" ]
 
-description = "FFI Bindings for libldap"
+description = "Pure Rust LDAP Client"
 repository = "https://github.com/dean4devil/rust-ldap"
 readme = "README.md"
 
@@ -12,3 +12,4 @@ keywords = ["ldap", "libldap"]
 license = "MIT"
 
 [dependencies]
+byteorder = "*"
