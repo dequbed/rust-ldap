@@ -1,30 +1,28 @@
 
 use std::io::prelude::*;
-use std::io::{self, Cursor};
+use std::io;
 use std::net::{TcpStream, ToSocketAddrs};
 
 use ber::{Tag, Type, Class, Payload};
-use search::{Entry, Attribute, Scope, derefAlias};
+use search::{Entry, Scope, DerefAlias};
 use tag::LDAPTag;
-use err;
+use err::{LDAPResult, LDAPError};
 
 
 pub struct LDAPConnection
 {
     tcp_stream: TcpStream,
-    tcp_buffer: [u8; 1024],
     message_id: u8,
 }
 
 impl LDAPConnection
 {
-    pub fn new<A: ToSocketAddrs>(address: A) -> Result<Self, err::Error>
+    pub fn new<A: ToSocketAddrs>(address: A) -> LDAPResult<Self>
     {
         let tcp_stream = try!(TcpStream::connect(address));
         Ok(LDAPConnection
         {
             tcp_stream: tcp_stream,
-            tcp_buffer: [0; 1024],
             message_id: 0,
         })
     }
@@ -50,7 +48,7 @@ impl LDAPConnection
         Ok(())
     }
 
-    fn recv_tag(&mut self) -> Result<Tag, err::Error>
+    fn recv_tag(&mut self) -> LDAPResult<Tag>
     {
         let result = try!(Tag::read(&mut self.tcp_stream));
 
@@ -61,7 +59,7 @@ impl LDAPConnection
 
     // fn try_read_tag(&mut self) -> Option<Tag>
 
-    pub fn simple_bind(&mut self, username: String, password: String) -> Result<(), err::Error>
+    pub fn simple_bind(&mut self, username: String, password: String) -> LDAPResult<()>
     {
         let version = Tag::new(
             Class::Universal(Type::Integer),
@@ -82,8 +80,8 @@ impl LDAPConnection
             let en = response.into_payload().into_inner_constructed().unwrap().remove(0);
             return match en.into_payload()
             {
-                Payload::Constructed(_) => Err(err::Error::new(err::Kind::other, None)),
-                Payload::Primitive(ref t) => Ok(()),
+                Payload::Constructed(_) => Err(LDAPError::DecodingFailure),
+                Payload::Primitive(_) => Ok(()),
             }
         }
 
@@ -93,13 +91,13 @@ impl LDAPConnection
     pub fn search(&mut self,
                   base: String,
                   scope: Scope,
-                  alias: derefAlias,
+                  alias: DerefAlias,
                   size_limit: i32,
                   time_limit: i32,
                   types_only: bool,
                   filters: Tag, // TODO: Figure something out...
                   attributes: Vec<String>
-           ) -> Result<Vec<Entry>, err::Error>
+           ) -> LDAPResult<Vec<Entry>>
     {
         let search_base = base.into_tag();
         let scope = scope.into_tag();
@@ -124,6 +122,8 @@ impl LDAPConnection
 
         try!(self.send_tag(search_request));
 
+        let mut results = Vec::<Entry>::new();
+
         loop
         {
             let response = try!(self.recv_tag());
@@ -133,13 +133,14 @@ impl LDAPConnection
                 Class::Application(5) => break,
                 Class::Application(4) =>
                 {
-                    // Parse search entry and add to list?
+                    let entry = try!(Entry::from_tag(response));
+                    results.push(entry);
                 },
-                _ => return Err(err::Error::new(err::Kind::other, None)),
+                _ => return Err(LDAPError::DecodingFailure),
             }
         }
 
-        Ok(Vec::new())
+        Ok(results)
     }
 }
 

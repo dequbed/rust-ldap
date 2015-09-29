@@ -1,79 +1,66 @@
 use tag::LDAPTag;
+use err::{LDAPResult, LDAPError};
 use ber::{Tag, Class, Type, Payload};
 
 pub struct Entry
 {
-    dn: String,
-    attributes: Vec<Attribute>,
+    pub dn: String,
+    pub attributes: Vec<Attribute>,
 }
 
 impl Entry
 {
-    pub fn from_tag(tag: Tag) -> Option<Entry>
+    pub fn from_tag(tag: Tag) -> LDAPResult<Entry>
     {
         if tag.is_class(Class::Application(4))
         {
-            let payload = tag.into_payload().into_inner_constructed();
-            if payload.is_none() { return None; }
-            let mut payload = payload.unwrap();
-            // String tag
-            let dn_tag = payload.remove(0).into_payload().into_inner_primitive();
-            if dn_tag.is_none() { return None; }
-            let dn = String::from_utf8(dn_tag.unwrap());
-            if dn.is_err() { return None; }
-            // Sequence tag
-            let attr_tag = payload.remove(1).into_payload().into_inner_constructed();
-            if attr_tag.is_none() { return None; }
-            let attr_tag = attr_tag.unwrap();
+            let mut payload = try!(tag.into_payload().into_inner_constructed());
+
+            let dn_tag = try!(payload.remove(0).into_payload().into_inner_primitive());
+            let dn = try!(String::from_utf8(dn_tag));
+
+            let attr_tag = try!(payload.remove(1).into_payload().into_inner_constructed());
             let mut attributes = Vec::<Attribute>::new();
             for attr in attr_tag
             {
-                let attrib = Attribute::from_tag(attr);
-                if attrib.is_none() { return None; }
-                attributes.push(attrib.unwrap());
+                let attrib = try!(Attribute::from_tag(attr));
+                attributes.push(attrib);
             }
-            return Some(Entry{dn: dn.unwrap(), attributes: attributes});
+
+            return Ok(Entry{dn: dn, attributes: attributes});
         }
 
-        None
+        Err(LDAPError::DecodingFailure)
     }
 }
 
 pub struct Attribute
 {
-    description: String,
-    values: Vec<String>,
+    pub description: String,
+    pub values: Vec<String>,
 }
 
 impl Attribute
 {
-    pub fn from_tag(tag: Tag) -> Option<Attribute>
+    pub fn from_tag(tag: Tag) -> LDAPResult<Attribute>
     {
-        let mut payload = tag.into_payload().into_inner_constructed();
-        if payload.is_none() { return None; }
-        let mut payload = payload.unwrap();
+        let mut payload = try!(tag.into_payload().into_inner_constructed());
 
-        let description = payload.remove(0).into_payload().into_inner_primitive();
-        if description.is_none() { return None; }
-        let description = String::from_utf8(description.unwrap());
-        if description.is_err() { return None; }
+        let description = try!(payload.remove(0).into_payload().into_inner_primitive());
+        let description = try!(String::from_utf8(description));
 
-        let value_tags = payload.remove(1).into_payload().into_inner_constructed();
-        if value_tags.is_none() { return None; }
-
+        let value_tags = try!(payload.remove(0).into_payload().into_inner_constructed());
         let mut values = Vec::<String>::new();
-        for val in value_tags.unwrap()
+        for val in value_tags
         {
-            let octets = val.into_payload().into_inner_primitive();
-            if octets.is_none() { return None; }
-            let value = String::from_utf8(octets.unwrap());
-            if value.is_err() { return None; }
-            values.push(value.unwrap());
+            let octets = try!(val.into_payload().into_inner_primitive());
+            let value = try!(String::from_utf8(octets));
+            values.push(value);
         }
 
-        Some(Attribute
+        Ok(Attribute
         {
-            description: description.unwrap(),
+            description: description,
             values: values,
         })
     }
@@ -81,9 +68,9 @@ impl Attribute
 
 pub enum Scope
 {
-    baseObject = 0,
-    singleLevel = 1,
-    wholeSubtree = 2,
+    BaseObject = 0,
+    SingleLevel = 1,
+    WholeSubtree = 2,
 }
 
 impl LDAPTag for Scope
@@ -92,21 +79,46 @@ impl LDAPTag for Scope
     {
         Tag::new(Class::Universal(Type::Enumerated), Payload::Primitive(vec![self as u8]))
     }
+
+    fn from_tag(tag: Tag) -> LDAPResult<Self>
+    {
+        let payload = try!(tag.into_payload().into_inner_primitive());
+        match payload[0]
+        {
+            0 => Ok(Scope::BaseObject),
+            1 => Ok(Scope::SingleLevel),
+            2 => Ok(Scope::WholeSubtree),
+            _ => Err(LDAPError::DecodingFailure),
+        }
+    }
 }
 
-pub enum derefAlias
+pub enum DerefAlias
 {
-    neverDerefAliases = 0,
-    derefInSearching = 1,
-    derefFindingBaseObj = 2,
-    derefAlways = 3,
+    NeverDerefAliases = 0,
+    DerefInSearching = 1,
+    DerefFindingBaseObj = 2,
+    DerefAlways = 3,
 }
 
-impl LDAPTag for derefAlias
+impl LDAPTag for DerefAlias
 {
     fn into_tag(self) -> Tag
     {
         Tag::new(Class::Universal(Type::Enumerated), Payload::Primitive(vec![self as u8]))
+    }
+
+    fn from_tag(tag: Tag) -> LDAPResult<Self>
+    {
+        let payload = try!(tag.into_payload().into_inner_primitive());
+        match payload[0]
+        {
+            0 => Ok(DerefAlias::NeverDerefAliases),
+            1 => Ok(DerefAlias::DerefInSearching),
+            2 => Ok(DerefAlias::DerefFindingBaseObj),
+            3 => Ok(DerefAlias::DerefAlways),
+            _ => Err(LDAPError::DecodingFailure),
+        }
     }
 }
 
@@ -152,21 +164,35 @@ impl LDAPTag for ValueAssertion
         Tag::new(Class::Universal(Type::Sequence),
                  Payload::Constructed(vec![self.description.into_tag(), self.value.into_tag()]))
     }
+
+    fn from_tag(tag: Tag) -> LDAPResult<Self>
+    {
+        let mut payload = try!(tag.into_payload().into_inner_constructed());
+
+        let description: String = try!(LDAPTag::from_tag(payload.remove(0)));
+
+        let value: String = try!(LDAPTag::from_tag(payload.remove(0)));
+
+        Ok(ValueAssertion{
+            description: description,
+            value: value,
+        })
+    }
 }
 
 pub struct MatchingRuleAssertion
 {
-    rule: Option<String>,
-    ruletype: Option<String>,
-    value: String,
-    attributes: Option<bool>,
+    pub rule: Option<String>,
+    pub ruletype: Option<String>,
+    pub value: String,
+    pub attributes: Option<bool>,
 }
 
 pub enum Substrings
 {
-    initial(String),
-    any(String),
-    finalval(String),
+    Initial(String),
+    Any(String),
+    Final(String),
 }
 
 impl LDAPTag for Substrings
@@ -175,12 +201,32 @@ impl LDAPTag for Substrings
     {
         match self
         {
-            Substrings::initial(value) =>
+            Substrings::Initial(value) =>
                 Tag::new(Class::ContextSpecific(0), Payload::Primitive(value.into_bytes())),
-            Substrings::any(value) =>
+            Substrings::Any(value) =>
                 Tag::new(Class::ContextSpecific(1), Payload::Primitive(value.into_bytes())),
-            Substrings::finalval(value) =>
+            Substrings::Final(value) =>
                 Tag::new(Class::ContextSpecific(2), Payload::Primitive(value.into_bytes())),
+        }
+    }
+
+    fn from_tag(tag: Tag) -> LDAPResult<Self>
+    {
+        match tag.class
+        {
+            Class::ContextSpecific(v) =>
+            {
+                let payload = try!(tag.into_payload().into_inner_primitive());
+                let content: String = try!(String::from_utf8(payload));
+                return match v
+                {
+                    0 => Ok(Substrings::Initial(content)),
+                    1 => Ok(Substrings::Any(content)),
+                    2 => Ok(Substrings::Final(content)),
+                    _ => Err(LDAPError::DecodingFailure)
+                }
+            },
+            _ => Err(LDAPError::DecodingFailure),
         }
     }
 }

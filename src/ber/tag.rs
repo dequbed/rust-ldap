@@ -1,4 +1,4 @@
-use err;
+use err::{LDAPResult, LDAPError};
 
 use std::io::{self, Write, Read};
 
@@ -173,21 +173,21 @@ impl Payload
 
     }
 
-    pub fn into_inner_constructed(self) -> Option<Vec<Tag>>
+    pub fn into_inner_constructed(self) -> LDAPResult<Vec<Tag>>
     {
         match self
         {
-            Payload::Primitive(_) => None,
-            Payload::Constructed(tags) => Some(tags),
+            Payload::Primitive(_) => Err(LDAPError::DecodingFailure),
+            Payload::Constructed(tags) => Ok(tags),
         }
     }
 
-    pub fn into_inner_primitive(self) -> Option<Vec<u8>>
+    pub fn into_inner_primitive(self) -> LDAPResult<Vec<u8>>
     {
         match self
         {
-            Payload::Constructed(_) => None,
-            Payload::Primitive(vec) => Some(vec),
+            Payload::Constructed(_) => Err(LDAPError::DecodingFailure),
+            Payload::Primitive(vec) => Ok(vec),
         }
     }
 }
@@ -212,7 +212,7 @@ impl Tag
             payload: payload,
         }
     }
-    pub fn read(r: &mut Read) -> Result<Tag, err::Error>
+    pub fn read(r: &mut Read) -> LDAPResult<Tag>
     {
         // First, read the type byte
         let tagbyte = try!(r.read_u8());
@@ -228,7 +228,7 @@ impl Tag
             // Extended Tags
             class = match classnumber
             {
-                ClassNumber::Universal => return Err(err::Error::new(err::Kind::InvalidLengthEncoding, None)),
+                ClassNumber::Universal => return Err(LDAPError::InvalidLengthEncoding),
                 ClassNumber::Application => Class::Application(try!(Tag::read_extended_tags(r))),
                 ClassNumber::ContextSpecific => Class::ContextSpecific(try!(Tag::read_extended_tags(r))),
                 ClassNumber::Private => Class::Private(try!(Tag::read_extended_tags(r))),
@@ -288,7 +288,7 @@ impl Tag
            })
     }
 
-    fn read_extended_tags(mut r: &mut Read) -> Result<i64, err::Error>
+    fn read_extended_tags(mut r: &mut Read) -> LDAPResult<i64>
     {
         let mut count = 0usize;
         let mut tag = 0i64;
@@ -313,7 +313,7 @@ impl Tag
         Ok(tag)
     }
 
-    pub fn read_lenght(r: &mut Read) -> Result<u64, err::Error>
+    pub fn read_lenght(r: &mut Read) -> LDAPResult<u64>
     {
         let lengthbyte = try!(r.read_u8());
         let mut length: u64 = 0;
@@ -321,7 +321,7 @@ impl Tag
         if lengthbyte == 0x80
         {
             // Indefinite length. NOPE. NOPENOPENOPE.
-            return Err(err::Error::new(err::Kind::IndefiniteLength, None));
+            return Err(LDAPError::IndefiniteLength);
         }
         else if lengthbyte & 0x80 == 0x80
         {
