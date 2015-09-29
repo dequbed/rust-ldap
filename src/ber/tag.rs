@@ -1,4 +1,4 @@
-use super::err;
+use err;
 
 use std::io::{self, Write, Read};
 
@@ -37,7 +37,6 @@ pub enum Type
     UniversalString  = 28,
     CharacterString  = 29,
     BmpString        = 30,
-    // TODO: Special Type for extended tag encoding?
 }
 
 impl Type
@@ -173,12 +172,30 @@ impl Payload
         return l;
 
     }
+
+    pub fn into_inner_constructed(self) -> Option<Vec<Tag>>
+    {
+        match self
+        {
+            Payload::Primitive(_) => None,
+            Payload::Constructed(tags) => Some(tags),
+        }
+    }
+
+    pub fn into_inner_primitive(self) -> Option<Vec<u8>>
+    {
+        match self
+        {
+            Payload::Constructed(_) => None,
+            Payload::Primitive(vec) => Some(vec),
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct Tag
 {
-    class: Class,
+    pub class: Class,
     payload: Payload,
     // Length as encoded in the Tag -> Payload length, NOT TAG LENGTH
     length: u64,
@@ -186,6 +203,15 @@ pub struct Tag
 
 impl Tag
 {
+    pub fn new(class: Class, payload: Payload) -> Tag
+    {
+        Tag
+        {
+            class: class,
+            length: payload.len() as u64,
+            payload: payload,
+        }
+    }
     pub fn read(r: &mut Read) -> Result<Tag, err::Error>
     {
         // First, read the type byte
@@ -219,31 +245,7 @@ impl Tag
             };
         }
 
-        // Next, read the length
-        let lengthbyte = try!(r.read_u8());
-        let mut length: u64 = 0;
-
-        if lengthbyte == 0x80
-        {
-            // Indefinite length. NOPE. NOPENOPENOPE.
-            return Err(err::Error::new(err::Kind::IndefiniteLength, None));
-        }
-        else if lengthbyte & 0x80 == 0x80
-        {
-            // Long form
-            let count = (lengthbyte & 0x7F) as usize;
-
-            for i in 0..count
-            {
-                let lengthbyte = try!(r.read_u8());
-                length |= (lengthbyte as u64) << (count - i - 1 * 8);
-            }
-        }
-        else
-        {
-            // Short form
-            length = lengthbyte as u64;
-        }
+        let length = try!(Tag::read_lenght(r));
 
         let payload: Payload;
 
@@ -309,6 +311,36 @@ impl Tag
         }
 
         Ok(tag)
+    }
+
+    pub fn read_lenght(r: &mut Read) -> Result<u64, err::Error>
+    {
+        let lengthbyte = try!(r.read_u8());
+        let mut length: u64 = 0;
+
+        if lengthbyte == 0x80
+        {
+            // Indefinite length. NOPE. NOPENOPENOPE.
+            return Err(err::Error::new(err::Kind::IndefiniteLength, None));
+        }
+        else if lengthbyte & 0x80 == 0x80
+        {
+            // Long form
+            let count = (lengthbyte & 0x7F) as usize;
+
+            for i in 0..count
+            {
+                let lengthbyte = try!(r.read_u8());
+                length |= (lengthbyte as u64) << (count - i - 1 * 8);
+            }
+        }
+        else
+        {
+            // Short form
+            length = lengthbyte as u64;
+        }
+
+        Ok(length)
     }
 
     pub fn write(&self, mut w: &mut Write) -> io::Result<()>
@@ -454,7 +486,7 @@ impl Tag
             Class::Application(tag) | Class::ContextSpecific(tag) | Class::Private(tag) =>
             {
                 // In case of the other three we actually have to look at their content
-                let mut len = 0usize;
+                let mut len = 1usize;
                 let mut tag = tag;
                 while tag < 0
                 {
@@ -484,6 +516,22 @@ impl Tag
         length += self.payload.len();
 
         length
+    }
+
+    pub fn is_class(&self, class: Class) -> bool
+    {
+        self.class == class
+    }
+
+    // Consume tag to extract payload
+    pub fn into_payload(self) -> Payload
+    {
+        self.payload
+    }
+
+    pub fn set_class(&mut self, class: Class)
+    {
+        self.class = class;
     }
 }
 
