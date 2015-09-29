@@ -1,3 +1,4 @@
 extern crate byteorder;
 
-pub mod ber;
+mod ber;
+mod err;

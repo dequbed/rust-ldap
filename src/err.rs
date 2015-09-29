@@ -10,6 +10,7 @@ pub enum Kind {
     InvalidLengthEncoding,
     Io(io::Error),
     Byteorder(byteorder::Error),
+    other
 }
 
 pub struct Error {
@@ -49,6 +50,7 @@ impl error::Error for Error {
             Kind::InvalidLengthEncoding => "The long form of encoding type is not allowed for class Universal.",
             Kind::Io(ref x) => error::Error::description(x),
             Kind::Byteorder(ref x) => error::Error::description(x),
+            Kind::other => "Other error",
         }
     }
 
