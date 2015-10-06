@@ -2,6 +2,29 @@ use tag::LDAPTag;
 use err::{LDAPResult, LDAPError};
 use ber::{Tag, Class, Type, Payload};
 
+/// Create an 'and' filter over the given filters
+pub fn filter_and(filters: Vec<Tag>) -> Tag
+{
+    Tag::new(Class::ContextSpecific(0), Payload::Constructed(filters))
+}
+
+pub fn equality_filter(description: String, value: String) -> Tag
+{
+    Tag::new(Class::ContextSpecific(3), Payload::Constructed(vec![
+        description.into_tag(),
+        value.into_tag()
+    ]))
+}
+
+pub fn substring_filter(description: String, substrings: Vec<Substrings>) -> Tag
+{
+    Tag::new(Class::ContextSpecific(4), Payload::Constructed(vec![
+        description.into_tag(),
+        substrings.into_tag()
+    ]))
+}
+
+#[derive(Debug, Eq, PartialEq)]
 pub struct Entry
 {
     pub dn: String,
@@ -19,7 +42,7 @@ impl Entry
             let dn_tag = try!(payload.remove(0).into_payload().into_inner_primitive());
             let dn = try!(String::from_utf8(dn_tag));
 
-            let attr_tag = try!(payload.remove(1).into_payload().into_inner_constructed());
+            let attr_tag = try!(payload.remove(0).into_payload().into_inner_constructed());
             let mut attributes = Vec::<Attribute>::new();
             for attr in attr_tag
             {
@@ -34,6 +57,7 @@ impl Entry
     }
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct Attribute
 {
     pub description: String,

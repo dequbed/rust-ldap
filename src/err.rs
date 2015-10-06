@@ -10,6 +10,7 @@ pub type LDAPResult<Value> = Result<Value, LDAPError>;
 
 pub enum LDAPError
 {
+    BindFailed,
     DecodingFailure,
     IndefiniteLength,
     InvalidLengthEncoding,
@@ -40,6 +41,8 @@ impl error::Error for LDAPError
     {
         match *self
         {
+            LDAPError::BindFailed =>
+                "LDAP Bind failed.",
             LDAPError::DecodingFailure =>
                 "Decoding failure, input is not valid in this situation.",
             LDAPError::IndefiniteLength =>

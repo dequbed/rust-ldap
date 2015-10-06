@@ -4,7 +4,7 @@ use std::io;
 use std::net::{TcpStream, ToSocketAddrs};
 
 use ber::{Tag, Type, Class, Payload};
-use search::{Entry, Scope, DerefAlias};
+use search::{self, Entry, Scope, DerefAlias};
 use tag::LDAPTag;
 use err::{LDAPResult, LDAPError};
 
@@ -13,6 +13,21 @@ pub struct LDAPConnection
 {
     tcp_stream: TcpStream,
     message_id: u8,
+}
+
+impl Clone for LDAPConnection
+{
+    fn clone(&self) -> Self
+    {
+        LDAPConnection::new(self.tcp_stream.peer_addr().unwrap()).unwrap()
+    }
+
+    fn clone_from(&mut self, source: &Self)
+    {
+        let tmp = LDAPConnection::new(source.tcp_stream.peer_addr().unwrap()).unwrap();
+        self.tcp_stream = tmp.tcp_stream;
+        self.message_id = 0u8;
+    }
 }
 
 impl LDAPConnection
@@ -65,7 +80,8 @@ impl LDAPConnection
             Class::Universal(Type::Integer),
             Payload::Primitive(vec![0x3]));
         let name = username.into_tag();
-        let authentication = password.into_tag();
+        let mut authentication = password.into_tag();
+        authentication.set_class(Class::ContextSpecific(0x0));
 
         let bind_request = Tag::new(
             Class::Application(0),
@@ -85,7 +101,7 @@ impl LDAPConnection
             }
         }
 
-        Ok(())
+        Err(LDAPError::BindFailed)
     }
 
     pub fn search(&mut self,
@@ -124,18 +140,19 @@ impl LDAPConnection
 
         let mut results = Vec::<Entry>::new();
 
+
         loop
         {
             let response = try!(self.recv_tag());
             // Response is either Application(5) (Search Done) or Application(4) (Search Entry)
             match response.class
             {
-                Class::Application(5) => break,
                 Class::Application(4) =>
                 {
                     let entry = try!(Entry::from_tag(response));
                     results.push(entry);
                 },
+                Class::Application(5) => break,
                 _ => return Err(LDAPError::DecodingFailure),
             }
         }
@@ -147,13 +164,32 @@ impl LDAPConnection
 #[cfg(test)]
 mod tests {
     use super::*;
+    use search;
 
     #[test]
-    fn bind() {
+    fn bind()
+    {
         let mut conn = LDAPConnection::new(("127.0.0.1", 3890)).unwrap();
+        conn.simple_bind("cn=root".to_string(), "secret".to_string()).unwrap();
+    }
 
+    #[test]
+    fn search()
+    {
+        let mut conn = LDAPConnection::new(("127.0.0.1", 3890)).unwrap();
         conn.simple_bind("cn=root".to_string(), "secret".to_string()).unwrap();
 
-        assert!(false)
+        let mut result = conn.search(
+            "o=example".to_string(),
+            search::Scope::WholeSubtree,
+            search::DerefAlias::NeverDerefAliases,
+            0i32,
+            0i32,
+            false,
+            search::equality_filter("objectClass".to_string(), "top".to_string()),
+            vec!["".to_string()]
+        ).unwrap();
+
+        assert!(result.remove(0) == search::Entry { dn: "o=example".to_string(), attributes: vec![] });
     }
 }

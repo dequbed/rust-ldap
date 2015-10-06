@@ -245,7 +245,9 @@ impl Tag
             };
         }
 
-        let length = try!(Tag::read_lenght(r));
+        let length = try!(Tag::read_length(r));
+
+        let lr = &mut r.take(length);
 
         let payload: Payload;
 
@@ -255,30 +257,32 @@ impl Tag
             Structure::Primitive =>
             {
                 let mut buffer = vec![0; length as usize];
-                try!(r.read(&mut buffer));
+                try!(lr.read(&mut buffer));
                 payload = Payload::Primitive(buffer);
             },
             Structure::Constructed =>
             {
                 // Parse
-                let mut tags = Vec::new();
+                let mut tags = Vec::<Tag>::new();
 
-                let mut left = length;
-
-                while
+                // Constructed tags may be empty
+                if length > 0
                 {
-                    let tag = try!(Tag::read(r));
-                    left -= tag.len() as u64;
-                    tags.push(tag);
+                    let mut left = length;
+                    while
+                    {
+                        let tag = try!(Tag::read(lr));
+                        left -= tag.len() as u64;
+                        tags.push(tag);
 
-                    // If this returns false the while loop ends
-                    left > 0
-                } {}
+                        // If this returns false the while loop ends
+                        left != 0
+                    } {}
+                }
 
                 payload = Payload::Constructed(tags);
             },
         }
-
 
         Ok(Tag
            {
@@ -313,7 +317,7 @@ impl Tag
         Ok(tag)
     }
 
-    pub fn read_lenght(r: &mut Read) -> LDAPResult<u64>
+    pub fn read_length(r: &mut Read) -> LDAPResult<u64>
     {
         let lengthbyte = try!(r.read_u8());
         let mut length: u64 = 0;
@@ -456,198 +460,197 @@ impl Tag
         match self.payload
         {
             Payload::Primitive(ref value) =>
-            {
-                try!(w.write_all(value))
-            },
-            Payload::Constructed(ref tags) =>
-            {
-                // Recurse into each tag and let it write itself
-                for tag in tags
-                {
-                    try!(tag.write(w));
-                }
-            },
-        }
-
-        // Everything worked :D
-        Ok(())
-    } // write
-
-    // FIXME: This function does not yet work!
-    /// Returns the length of the whole tag in bytes
-    pub fn len(&self) -> usize
-    {
-        let mut length: usize = 0;
-
-        // Get the Lenght of the Class/PC/Type byte(s)
-        length += match self.class
         {
-            Class::Universal(_) => /* Universal is always exactly one byte */ 1,
-            Class::Application(tag) | Class::ContextSpecific(tag) | Class::Private(tag) =>
+            try!(w.write_all(value))
+        },
+        Payload::Constructed(ref tags) =>
+        {
+            // Recurse into each tag and let it write itself
+            for tag in tags
             {
-                // In case of the other three we actually have to look at their content
-                let mut len = 1usize;
-                let mut tag = tag;
-                while tag < 0
-                {
-                    tag >>= 8;
-                    len += 1;
-                }
-                len
+                try!(tag.write(w));
             }
-        };
+        },
+    }
 
-        // Add space the length bytes take up
-        if self.length < 127
+    // Everything worked :D
+    Ok(())
+} // write
+
+/// Returns the length of the whole tag in bytes
+pub fn len(&self) -> usize
+{
+    let mut length: usize = 0;
+
+    // Get the Lenght of the Class/PC/Type byte(s)
+    length += match self.class
+    {
+        Class::Universal(_) => /* Universal is always exactly one byte */ 1,
+        Class::Application(tag) | Class::ContextSpecific(tag) | Class::Private(tag) =>
         {
-            // Short form was used -> Just one byte
-            length += 1;
+            // In case of the other three we actually have to look at their content
+            let mut len = 1usize;
+            let mut tag = tag;
+            while (tag >> 8) < 0
+            {
+                tag >>= 8;
+                len += 1;
+            }
+            len
         }
-        else
-        {
-            // Long form was used
-            // Mask out first bit and add amount of length bytes that will follow
-            length += (self.length & 0x80) as usize;
-            // Add 1 for the first length byte
-            length += 1;
-        }
+    };
 
-        // Add payload length
-        length += self.payload.len();
-
-        length
-    }
-
-    pub fn is_class(&self, class: Class) -> bool
+    // Add space the length bytes take up
+    if self.length < 127
     {
-        self.class == class
+        // Short form was used -> Just one byte
+        length += 1;
+    }
+    else
+    {
+        // Long form was used
+        // Mask out first bit and add amount of length bytes that will follow
+        length += (self.length & 0x80) as usize;
+        // Add 1 for the first length byte
+        length += 1;
     }
 
-    // Consume tag to extract payload
-    pub fn into_payload(self) -> Payload
-    {
-        self.payload
-    }
+    // Add payload length
+    length += self.payload.len();
 
-    pub fn set_class(&mut self, class: Class)
-    {
-        self.class = class;
-    }
+    length
+}
+
+pub fn is_class(&self, class: Class) -> bool
+{
+    self.class == class
+}
+
+// Consume tag to extract payload
+pub fn into_payload(self) -> Payload
+{
+    self.payload
+}
+
+pub fn set_class(&mut self, class: Class)
+{
+    self.class = class;
+}
 }
 
 #[cfg(test)]
 mod test
 {
-    use super::*;
-    use std::io::Cursor;
+use super::*;
+use std::io::Cursor;
 
-    #[test]
-    fn read_simple_tag()
+#[test]
+fn read_simple_tag()
+{
+    let mut bytestream = Cursor::new(vec![2, 2, 255, 127]);
+    let tag = Tag::read(&mut bytestream).unwrap();
+
+    assert!(tag == Tag {
+        class: Class::Universal(Type::Integer),
+        payload: Payload::Primitive(vec![255, 127]),
+        length: 2,
+    });
+}
+
+#[test]
+fn write_simple_tag()
+{
+    let payload = vec![255, 127];
+    let tag = Tag
     {
-        let mut bytestream = Cursor::new(vec![2, 2, 255, 127]);
-        let tag = Tag::read(&mut bytestream).unwrap();
+        class: Class::Universal(Type::Integer),
+        payload: Payload::Primitive(payload.clone()),
+        length: 2,
+    };
 
-        assert!(tag == Tag {
-            class: Class::Universal(Type::Integer),
-            payload: Payload::Primitive(vec![255, 127]),
-            length: 2,
-        });
-    }
+    let mut buf = Vec::<u8>::new();
+    tag.write(&mut buf).unwrap();
+    assert!(buf == vec![0x2, 0x2, 0xFF, 0x7F]);
+}
 
-    #[test]
-    fn write_simple_tag()
+#[test]
+fn check_primitive_tag_length()
+{
+    let content = "Hello World!".to_string();
+    let tag = Tag
     {
-        let payload = vec![255, 127];
-        let tag = Tag
-        {
-            class: Class::Universal(Type::Integer),
-            payload: Payload::Primitive(payload.clone()),
-            length: 2,
-        };
+        class: Class::Universal(Type::Utf8String),
+        length: content.len() as u64,
+        payload: Payload::Primitive(content.into_bytes()),
+    };
 
-        let mut buf = Vec::<u8>::new();
-        tag.write(&mut buf).unwrap();
-        assert!(buf == vec![0x2, 0x2, 0xFF, 0x7F]);
-    }
+    let mut buf = Vec::<u8>::new();
+    tag.write(&mut buf).unwrap();
 
-    #[test]
-    fn check_primitive_tag_length()
-    {
-        let content = "Hello World!".to_string();
-        let tag = Tag
-        {
-            class: Class::Universal(Type::Utf8String),
-            length: content.len() as u64,
-            payload: Payload::Primitive(content.into_bytes()),
-        };
+    assert!(tag.len() == 14);
+}
 
-        let mut buf = Vec::<u8>::new();
-        tag.write(&mut buf).unwrap();
+#[test]
+fn read_constructed_tag()
+{
+    let mut bytestream = Cursor::new(vec![48, 14, 12, 12, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33]);
+    let tag = Tag::read(&mut bytestream).unwrap();
 
-        assert!(tag.len() == 14);
-    }
-
-    #[test]
-    fn read_constructed_tag()
-    {
-        let mut bytestream = Cursor::new(vec![48, 14, 12, 12, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33]);
-        let tag = Tag::read(&mut bytestream).unwrap();
-
-        assert!(tag == Tag
-            {
-                class: Class::Universal(Type::Sequence),
-                length: 14u64,
-                payload: Payload::Constructed(vec![
-                    Tag
-                    {
-                        class: Class::Universal(Type::Utf8String),
-                        length: 12u64,
-                        payload: Payload::Primitive("Hello World!".to_string().into_bytes()),
-                    }
-                ]),
-            })
-    }
-
-    #[test]
-    fn write_constructed_tag()
-    {
-        let content = "Hello World!".to_string();
-        let child = Tag
-        {
-            class: Class::Universal(Type::Utf8String),
-            length: content.len() as u64,
-            payload: Payload::Primitive(content.into_bytes()),
-        };
-        let parent = Tag
+    assert!(tag == Tag
         {
             class: Class::Universal(Type::Sequence),
-            length: child.len() as u64,
-            payload: Payload::Constructed(vec![child]),
-        };
+            length: 14u64,
+            payload: Payload::Constructed(vec![
+                Tag
+                {
+                    class: Class::Universal(Type::Utf8String),
+                    length: 12u64,
+                    payload: Payload::Primitive("Hello World!".to_string().into_bytes()),
+                }
+            ]),
+        })
+}
 
-        let mut buf = Vec::<u8>::new();
-        parent.write(&mut buf).unwrap();
-
-        assert!(buf == vec![48, 14, 12, 12, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33])
-    }
-
-    #[test]
-    fn check_constructed_tag_length()
+#[test]
+fn write_constructed_tag()
+{
+    let content = "Hello World!".to_string();
+    let child = Tag
     {
-        let content = "Hello World!".to_string();
-        let child = Tag
-        {
-            class: Class::Universal(Type::Utf8String),
-            length: content.len() as u64,
-            payload: Payload::Primitive(content.into_bytes()),
-        };
-        let parent = Tag
-        {
-            class: Class::Universal(Type::Sequence),
-            length: child.len() as u64,
-            payload: Payload::Constructed(vec![child]),
-        };
+        class: Class::Universal(Type::Utf8String),
+        length: content.len() as u64,
+        payload: Payload::Primitive(content.into_bytes()),
+    };
+    let parent = Tag
+    {
+        class: Class::Universal(Type::Sequence),
+        length: child.len() as u64,
+        payload: Payload::Constructed(vec![child]),
+    };
 
-        assert!(parent.len() == 16);
-    }
+    let mut buf = Vec::<u8>::new();
+    parent.write(&mut buf).unwrap();
+
+    assert!(buf == vec![48, 14, 12, 12, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33])
+}
+
+#[test]
+fn check_constructed_tag_length()
+{
+    let content = "Hello World!".to_string();
+    let child = Tag
+    {
+        class: Class::Universal(Type::Utf8String),
+        length: content.len() as u64,
+        payload: Payload::Primitive(content.into_bytes()),
+    };
+    let parent = Tag
+    {
+        class: Class::Universal(Type::Sequence),
+        length: child.len() as u64,
+        payload: Payload::Constructed(vec![child]),
+    };
+
+    assert!(parent.len() == 16);
+}
 }
