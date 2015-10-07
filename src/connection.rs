@@ -4,7 +4,7 @@ use std::io;
 use std::net::{TcpStream, ToSocketAddrs};
 
 use ber::{Tag, Type, Class, Payload};
-use search::{self, Entry, Scope, DerefAlias};
+use search::{Entry, Scope, DerefAlias};
 use tag::LDAPTag;
 use err::{LDAPResult, LDAPError};
 
@@ -186,9 +186,11 @@ mod tests {
             0i32,
             0i32,
             false,
-            search::equality_filter("objectClass".to_string(), "top".to_string()),
-            vec!["".to_string()]
+            search::equality_filter("objectClass".to_string(), "person".to_string()),
+            vec!["objectclass".to_string(), "cn".to_string(), "o".to_string()]
         ).unwrap();
+
+        println!("{:?}", result);
 
         assert!(result.remove(0) == search::Entry { dn: "o=example".to_string(), attributes: vec![] });
     }

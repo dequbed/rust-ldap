@@ -335,7 +335,7 @@ impl Tag
             for i in 0..count
             {
                 let lengthbyte = try!(r.read_u8());
-                length |= (lengthbyte as u64) << (count - i - 1 * 8);
+                length |= (lengthbyte as u64) << ((count - i - 1) * 8);
             }
         }
         else
