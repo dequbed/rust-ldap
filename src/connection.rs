@@ -187,7 +187,7 @@ mod tests {
             0i32,
             false,
             search::equality_filter("objectClass".to_string(), "person".to_string()),
-            vec!["objectclass".to_string(), "cn".to_string(), "o".to_string()]
+            vec!["desc".to_string(), "desd".to_string(), "dese".to_string()]
         ).unwrap();
 
         println!("{:?}", result);
