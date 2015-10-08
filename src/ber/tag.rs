@@ -272,12 +272,17 @@ impl Tag
                     while
                     {
                         let tag = try!(Tag::read(lr));
-                        left -= tag.len() as u64;
-                        tags.push(tag);
-
-
+                        if tag.len() as u64 <= left
+                        {
+                            left -= tag.len() as u64;
+                            tags.push(tag);
+                        }
+                        else
+                        {
+                            left = 0;
+                        }
                         // If this returns false the while loop ends
-                        left != 0
+                        left > 0
                     } {}
                 }
 
@@ -336,13 +341,18 @@ impl Tag
             for i in 0..(count)
             {
                 let lengthbyte = try!(r.read_u8());
-                length |= (lengthbyte as u64) << (i * 8);
+                length = (length << (i * 8)) + lengthbyte as u64
+                // length |= (lengthbyte as u64) << (i * 8);
             }
         }
         else
         {
             // Short form
             length = lengthbyte as u64;
+        }
+
+        if length == 256
+        {
         }
 
         Ok(length)
@@ -408,6 +418,7 @@ impl Tag
                     let mut tag = tag;
                     while tag > 0
                     {
+
                         let mut byte = (tag & 0x7F) as u8;
 
                         // Shift away the 7 bits we just took

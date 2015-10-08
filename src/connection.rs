@@ -140,7 +140,6 @@ impl LDAPConnection
 
         let mut results = Vec::<Entry>::new();
 
-
         loop
         {
             let response = try!(self.recv_tag());
@@ -187,7 +186,7 @@ mod tests {
             0i32,
             false,
             search::equality_filter("objectClass".to_string(), "person".to_string()),
-            vec!["desc".to_string(), "desd".to_string(), "dese".to_string()]
+            vec!["cn".to_string(), "desc".to_string(), "desd".to_string(), "dese".to_string()]
         ).unwrap();
 
         println!("{:?}", result);
