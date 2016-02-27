@@ -1,7 +1,7 @@
 use LDAPResult;
 use ber::{Tag, Type, Class, Payload};
 
-pub trait LDAPTag
+pub trait LDAPTag: Sized
 {
     fn into_tag(self) -> Tag;
     fn from_tag(tag: Tag) -> LDAPResult<Self>;
