@@ -1,3 +1,8 @@
-pub mod tag;
+use std;
 
-pub use self::tag::{Tag, Type, Class, Payload};
+mod error;
+
+mod common;
+mod encoder;
+
+pub type Result<T> = std::result::Result<T, error::ASN1Error>;
