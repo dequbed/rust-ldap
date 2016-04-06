@@ -80,7 +80,7 @@ impl UniversalTypes
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum Class
 {
     // TODO: Use BigInt instead of i64 to make encoding arbitrary sizes possbile?
@@ -109,7 +109,7 @@ impl Class
 
 /// ClassNumber contains the numerical representation of the tags class
 #[derive(Debug, Copy, Clone)]
-enum ClassNumber
+pub enum ClassNumber
 {
     Universal       = 0,
     Application     = 1,
@@ -154,7 +154,12 @@ impl Structure
     }
 }
 
-pub type Type = (Class, Structure);
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+pub struct Type
+{
+    pub class: Class,
+    pub structure: Structure
+}
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum Payload
@@ -163,113 +168,105 @@ pub enum Payload
     Constructed(Vec<Tag>),
 }
 
-//impl Payload
-//{
-//    /// Return the length of the PAYLOAD in bytes
-//    ///
-//    /// If the payload is Constructed, this function
-//    /// returns the length of all contained tags, not
-//    /// just their payload.
-//    pub fn len(&self) -> usize
-//    {
-//        let mut l: usize = 0;
-//        match *self
-//        {
-//            Payload::Primitive(ref v) => l = v.len() as usize,
-//            Payload::Constructed(ref v) =>
-//            {
-//                for tag in v
-//                {
-//                    l += tag.len();
-//                }
-//            }
-//        }
+impl Payload
+{
+    pub fn len(&self) -> u64
+    {
+        let mut l: u64 = 0;
+        match *self
+        {
+            Payload::Primitive(ref v) => l = v.len() as u64,
+            Payload::Constructed(ref v) =>
+            {
+                for tag in v
+                {
+                    l += tag.size as u64;
+                }
+            }
+        }
 
-//        return l;
+        return l;
 
-//    }
+    }
 
-//}
-
-// pub struct Tag
-// {
-//     pub class: Class,
-//     payload: Payload,
-//     // Length as encoded in the Tag -> Payload length, NOT TAG LENGTH
-//     length: u64,
-// }
+}
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct Tag
 {
     pub _type: Type,
+    // Encoded length
     pub _length: u64,
-    pub _value: Payload
+    pub _value: Payload,
+
+    // Lenght of the tag including type and length bytes
+    pub size: u64,
 }
 
-//     /// Returns the length of the whole tag in bytes
-//     pub fn len(&self) -> usize
-//     {
-//         let mut length: usize = 0;
+pub fn construct(tagtype: Type, payload: Payload) -> Tag
+{
+    let pllen = payload.len();
 
-//         // Get the Lenght of the Class/PC/Type byte(s)
-//         length += match self.class
-//         {
-//             Class::Universal(_) => /* Universal is always exactly one byte */ 1,
-//             Class::Application(tag) | Class::ContextSpecific(tag) | Class::Private(tag) =>
-//             {
-//                 // In case of the other three we actually have to look at their content
-//                 let mut len = 1usize;
-//                 if tag > 127
-//                 {
-//                     let mut tag = tag;
-//                     while (tag >> 7) > 0
-//                     {
-//                         tag >>= 7;
-//                         len += 1;
-//                     }
-//                 }
-//                 len
-//             }
-//         };
+    let taglen = calculate_len(&tagtype, &pllen);
 
-//         // Add space the length bytes take up
-//         if self.length <= 127
-//         {
-//             // Short form was used -> Just one byte
-//             length += 1;
-//         }
-//         else
-//         {
-//             let mut len = self.length;
-//             while len > 0
-//             {
-//                 len >>= 8;
-//                 length += 1;
-//             }
+    Tag
+    {
+        _type: tagtype,
+        _value: payload,
+        _length: pllen,
+        size: taglen,
+    }
+}
 
-//             length += 0;
-//         }
+// we use the given length and do not calculate the length from the payload
+pub fn calculate_len(tagtype: &Type, pllen: &u64) -> u64
+{
+    let mut length: u64 = 0;
 
-//         // Add payload length
-//         length += self.length as usize;
+    // Get the Lenght of the Class/PC/Type byte(s)
+    length += match tagtype.class
+    {
+        Class::Universal(_) => /* Universal is always exactly one byte */ 1,
+        Class::Application(tag) | Class::ContextSpecific(tag) | Class::Private(tag) =>
+        {
+            // In case of the other three we actually have to look at their content
+            let mut len = 1u64;
+            if tag > 127
+            {
+                let mut tag = tag;
+                while
+                {
+                    len += 1;
+                    tag >>= 7;
+                    tag > 0
+                } {}
+            }
+            len
+        }
+    };
 
-//         length
-//     }
+    // Add space the length bytes take up
+    if *pllen < 128
+    {
+        // Short form was used -> Just one byte
+        length += 1;
+    }
+    else
+    {
+        let mut len = *pllen;
+        while
+        {
+            len >>= 8;
+            length += 1;
 
-//     pub fn is_class(&self, class: Class) -> bool
-//     {
-//         self.class == class
-//     }
+            len > 0
+        } {}
 
-//     // Consume tag to extract payload
-//     pub fn into_payload(self) -> Payload
-//     {
-//         self.payload
-//     }
+        length += 1;
+    }
 
-//     pub fn set_class(&mut self, class: Class)
-//     {
-//         self.class = class;
-//     }
-// }
+    // Add payload length
+    length += *pllen as u64;
+
+    length
+}

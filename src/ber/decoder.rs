@@ -9,14 +9,15 @@ use byteorder::ReadBytesExt;
 
 // Decode a stream of bytes into an assortment of tags
 
-fn read(r: &mut Read) -> ber::Result<Tag>
+pub fn read(r: &mut Read) -> ber::Result<Tag>
 {
     let _type = try!(read_type(r));
     let _length = try!(read_length(r));
-    let _value = try!(read_value(_type.1, r.take(_length)));
+    let _value = try!(read_value(_type.structure, r.take(_length as u64)));
 
     Ok(Tag
     {
+        size: common::calculate_len(&_type, &_length),
         _type: _type,
         _length: _length,
         _value: _value,
@@ -36,14 +37,15 @@ fn read_type(r: &mut Read) -> ber::Result<common::Type>
     {
         let mut tag = 0u32;
 
-        for count in 0..3
+        for count in 0..
         {
             let byte = try!(r.read_u8());
 
             // The first bit does not count towards the final ID
             let nbr = (byte & 0x7F) as u32;
 
-            tag |= nbr << (7 * count);
+            tag = tag << 7;
+            tag += nbr;
 
             // If the 8th bit is not set this byte is the last
             if byte & 0x80 == 0
@@ -53,12 +55,18 @@ fn read_type(r: &mut Read) -> ber::Result<common::Type>
         }
 
         let class = try!(common::Class::construct(class, tag as i64));
-        Ok((class, structure))
+        Ok(common::Type {
+            class: class,
+            structure: structure
+        })
     }
     else
     {
         let class = try!(common::Class::construct(class, number as i64));
-        Ok((class, structure))
+        Ok(common::Type {
+            class: class,
+            structure: structure
+        })
     }
 }
 
@@ -75,7 +83,7 @@ fn read_length(r: &mut Read) -> ber::Result<u64>
     // First bit is set. Either we're using indefinite length or the long form
     if first_byte > 0x80
     {
-        return Ok(try!(r.read_uint::<BigEndian>((first_byte & 0x7f) as usize)));
+        return Ok(try!(r.read_uint::<BigEndian>((first_byte & 0x7f) as usize)) as u64);
     }
 
     // Using the short form
@@ -105,7 +113,7 @@ fn read_value(s: common::Structure, mut t: Take<&mut Read>) -> ber::Result<commo
                 while
                 {
                     let tag = try!(read(&mut t));
-                    let read_len = tag_len(&tag);
+                    let read_len = common::calculate_len(&tag._type, &tag._length);
                     tags.push(tag);
                     left -= read_len as u64;
 
@@ -121,55 +129,6 @@ fn read_value(s: common::Structure, mut t: Take<&mut Read>) -> ber::Result<commo
     }
 }
 
-fn tag_len(tag: &common::Tag) -> usize
-    {
-        let mut length: usize = 0;
-
-        // Get the Lenght of the Class/PC/Type byte(s)
-        length += match tag._type.0
-        {
-            common::Class::Universal(_) => /* Universal is always exactly one byte */ 1,
-            common::Class::Application(tag) | common::Class::ContextSpecific(tag) | common::Class::Private(tag) =>
-            {
-                // In case of the other three we actually have to look at their content
-                let mut len = 1usize;
-                if tag > 127
-                {
-                    let mut tag = tag;
-                    while (tag >> 7) > 0
-                    {
-                        tag >>= 7;
-                        len += 1;
-                    }
-                }
-                len
-            }
-        };
-
-        // Add space the length bytes take up
-        if tag._length <= 127
-        {
-            // Short form was used -> Just one byte
-            length += 1;
-        }
-        else
-        {
-            let mut len = tag._length;
-            while len > 0
-            {
-                len >>= 8;
-                length += 1;
-            }
-
-            length += 1;
-        }
-
-        // Add payload length
-        length += tag._length as usize;
-
-        length
-    }
-
 #[cfg(test)]
 mod tests
 {
@@ -184,9 +143,13 @@ mod tests
         let tag = super::read(&mut bytestream).unwrap();
 
         assert!(tag == common::Tag {
-            _type: (common::Class::Universal(common::UniversalTypes::Integer), common::Structure::Primitive),
+            _type: common::Type {
+                    class: common::Class::Universal(common::UniversalTypes::Integer),
+                    structure: common::Structure::Primitive
+                },
             _length: 2,
-            _value: common::Payload::Primitive(vec![255, 127])
+            _value: common::Payload::Primitive(vec![255, 127]),
+            size: 4,
         })
     }
 
@@ -197,14 +160,146 @@ mod tests
         let tag = super::read(&mut bytestream).unwrap();
 
         assert!(tag == common::Tag {
-            _type: (common::Class::Universal(common::UniversalTypes::Sequence), common::Structure::Constructed),
+            _type: common::Type {
+                    class: common::Class::Universal(common::UniversalTypes::Sequence),
+                    structure: common::Structure::Constructed,
+                },
             _length: 14,
             _value: common::Payload::Constructed(vec![
                 common::Tag {
-                    _type: (common::Class::Universal(common::UniversalTypes::Utf8String), common::Structure::Primitive),
+                    _type: common::Type {
+                            class: common::Class::Universal(common::UniversalTypes::Utf8String),
+                            structure: common::Structure::Primitive,
+                        },
                     _length: 12,
-                    _value: common::Payload::Primitive("Hello World!".to_string().into_bytes())
-                }])
+                    _value: common::Payload::Primitive("Hello World!".to_string().into_bytes()),
+                    size: 14
+                }]),
+            size: 16,
         })
+    }
+
+    #[test]
+    fn decode_extended_type_tags()
+    {
+        let mut bytestream = Cursor::new(vec![0x9F,0x87,0x68,0x06,0x73,0x65,0x63,0x6F,0x6E,0x64]);
+        let tag = super::read(&mut bytestream).unwrap();
+
+        println!("{:?}", tag);
+
+        assert!(tag == common::Tag {
+            _type: common::Type {
+                    class: common::Class::ContextSpecific(1000),
+                    structure: common::Structure::Primitive
+                },
+            _length: 6,
+            _value: common::Payload::Primitive("second".to_string().into_bytes()),
+            size: 10,
+        });
+    }
+
+    #[test]
+    fn decode_long_length_tags()
+    {
+        // I am so sorry D:
+        let mut bytestream = Cursor::new(vec![
+            0x30, 0x82, 0x01, 0x01,
+            0x80, 0x0C, 0x4A, 0x75,
+            0x73, 0x74, 0x41, 0x4C,
+            0x6F, 0x6E, 0x67, 0x54,
+            0x61, 0x67, 0x81, 0x81,
+            0xF0, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61,
+            0x67,
+        ]);
+        let tag = super::read(&mut bytestream).unwrap();
+
+        assert!(tag == common::Tag {
+            _type: common::Type {
+                    class: common::Class::Universal(common::UniversalTypes::Sequence),
+                    structure: common::Structure::Constructed,
+                },
+            _length: 257,
+            _value: common::Payload::Constructed(vec![
+                common::Tag {
+                    _type: common::Type {
+                            class: common::Class::ContextSpecific(0),
+                            structure: common::Structure::Primitive,
+                        },
+                    _length: 12,
+                    _value: common::Payload::Primitive("JustALongTag".to_string().into_bytes()),
+                    size: 14
+                },
+                common::Tag {
+                    _type: common::Type {
+                            class: common::Class::ContextSpecific(1),
+                            structure: common::Structure::Primitive,
+                        },
+                    _length: 240,
+                    // Sorry D:
+                    _value: common::Payload::Primitive("JustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTag".to_string().into_bytes()),
+                    size: 243
+                },
+            ]),
+            size: 261
+        });
     }
 }

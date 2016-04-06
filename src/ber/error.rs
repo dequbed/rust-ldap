@@ -9,7 +9,6 @@ pub enum ASN1Error
     InvalidASN1,
     ExtendedTagTooLong,
     Io(io::Error),
-    ByteOrder(byteorder::Error),
 }
 
 impl fmt::Display for ASN1Error
@@ -44,8 +43,6 @@ impl error::Error for ASN1Error
                 "Rust-LDAP currently only handles extended tags up to 2^64. If you hit this case *please* open an issue.",
             ASN1Error::Io(ref x) =>
                 error::Error::description(x),
-            ASN1Error::ByteOrder(ref x) =>
-                error::Error::description(x),
         }
     }
 }
@@ -55,13 +52,5 @@ impl From<io::Error> for ASN1Error
     fn from(err: io::Error) -> ASN1Error
     {
         ASN1Error::Io(err)
-    }
-}
-
-impl From<byteorder::Error> for ASN1Error
-{
-    fn from(err: byteorder::Error) -> ASN1Error
-    {
-        ASN1Error::ByteOrder(err)
     }
 }
