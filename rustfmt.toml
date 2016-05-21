@@ -1,0 +1,10 @@
+# My own personal Rust style.
+
+fn_brace_style = "AlwaysNextLine"
+item_brace_style = "AlwaysNextLine"
+else_if_brace_style = "AlwaysNextLine"
+control_brace_style = "AlwaysNextLine"
+
+single_line_if_else = false
+
+normalize_comments = false

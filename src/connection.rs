@@ -4,8 +4,7 @@ use std::io;
 use std::net::{TcpStream, ToSocketAddrs};
 
 use ber::{Tag, Type, Class, Payload};
-use search::{Entry, Scope, DerefAlias};
-use tag::LDAPTag;
+// use search::{Entry, Scope, DerefAlias};
 use err::{LDAPResult, LDAPError};
 
 
