@@ -2,10 +2,47 @@ use ber;
 use ber::error::ASN1Error as Error;
 use ber::common::{self, Tag};
 
+use std::io;
 use std::io::{Read, Take};
 
 use byteorder::BigEndian;
 use byteorder::ReadBytesExt;
+
+pub struct Decoder<R>
+{
+    rdr: R,
+}
+
+impl<R: io::Read> Decoder<R>
+{
+    pub fn from_reader(rdr: R) -> Decoder<io::BufReader<R>>
+    {
+        Decoder::from_reader_raw(io::BufReader::new(rdr))
+    }
+
+    pub fn from_reader_raw(rdr: R) -> Decoder<R>
+    {
+        Decoder
+        {
+            rdr: rdr,
+        }
+    }
+
+    pub fn decode(&mut self) -> ber::Result<common::Tag>
+    {
+        let _type = try!(read_type(&mut self.rdr));
+        let _length = try!(read_length(&mut self.rdr));
+        let _value = try!(read_value(_type.structure, io::Read::take(&mut self.rdr, _length as u64)));
+
+        Ok(Tag
+        {
+            size: common::calculate_len(&_type, &_length),
+            _type: _type,
+            _length: _length,
+            _value: _value,
+        })
+    }
+}
 
 // Decode a stream of bytes into an assortment of tags
 

@@ -192,13 +192,10 @@ mod test
         let mut payload: Vec<u8> = Vec::new();
         payload.write_i16::<BigEndian>(1616);
 
-        let tagtype = common::Type {
-            class: common::Class::Universal(common::UniversalTypes::Integer),
-            structure: common::Structure::Primitive
-        };
+        let class = common::Class::Universal(common::UniversalTypes::Integer);
         let pl = common::Payload::Primitive(payload);
 
-        let tag = common::construct(tagtype, pl);
+        let tag = common::construct(class, pl);
 
         let mut buf = Vec::<u8>::new();
         super::write(tag, &mut buf).unwrap();
