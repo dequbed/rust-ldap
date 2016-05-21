@@ -203,8 +203,18 @@ pub struct Tag
     pub size: u64,
 }
 
-pub fn construct(tagtype: Type, payload: Payload) -> Tag
+pub fn construct(class: Class, payload: Payload) -> Tag
 {
+    let tagtype = Type
+    {
+        class: class,
+        structure: match payload
+        {
+            Payload::Primitive(_) => Structure::Primitive,
+            Payload::Constructed(_) => Structure::Constructed,
+        },
+    };
+
     let pllen = payload.len();
 
     let taglen = calculate_len(&tagtype, &pllen);

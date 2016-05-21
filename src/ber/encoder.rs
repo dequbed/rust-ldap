@@ -138,137 +138,6 @@ fn write_value(payload: common::Payload, mut w: &mut Write) -> ber::Result<()>
     }
 }
 
-// pub fn write(tag: Tag, mut w: &mut Write) -> io::Result<()>
-// {
-//     let class_number = match tag.class
-//     {
-//         Class::Universal(_) => ClassNumber::Universal,
-//         Class::Application(_) => ClassNumber::Application,
-//         Class::ContextSpecific(_) => ClassNumber::ContextSpecific,
-//         Class::Private(_) => ClassNumber::Private,
-//     };
-
-//     let struct_number = match tag.payload
-//     {
-//         Payload::Primitive(_) => Structure::Primitive,
-//         Payload::Constructed(_) => Structure::Constructed,
-//     };
-
-//     // Set to true if we have to write the tag in extended form
-//     let mut extended_tag = false;
-
-//     // Construct ASN1_Types byte
-//     let type_byte =
-//         // First two bits: Class
-//         (class_number as u8) << 6 |
-//         // Bit 6: Primitive/Constructed
-//         (struct_number as u8) << 5 |
-//         // Bit 5-1: Tag Number
-//         match tag.class
-//         {
-//             // tag will never be bigger than 30 so this is ok
-//             Class::Universal(tag) => (tag as u8),
-//             Class::Application(tag) | Class::ContextSpecific(tag) | Class::Private(tag) =>
-//             {
-//                 if tag > 30
-//                 {
-//                     // Write tags in extended form
-//                     extended_tag = true;
-//                     // This means we need to set the 5 tag bits to 11111, so 31 or 0x1F
-//                     31
-//                 }
-//                 else
-//                 {
-//                     (tag as u8)
-//                 }
-//             },
-//         }; // let type_byte
-
-//     // Write type byte
-//     try!(w.write_u8(type_byte));
-
-//     // Write the extended tag form
-//     if extended_tag
-//     {
-//         match tag.class
-//         {
-//             Class::Universal(_) => unreachable!(),
-//             Class::Application(tag) | Class::ContextSpecific(tag) | Class::Private(tag) =>
-//             {
-//                 let mut tag = tag;
-//                 while tag > 0
-//                 {
-
-//                     let mut byte = (tag & 0x7F) as u8;
-
-//                     // Shift away the 7 bits we just took
-//                     tag >>= 7;
-//                     if tag != 0
-//                     {
-//                         // There are more bytes to go, so set the 8th bit
-//                         byte |= 0x80;
-//                     }
-
-//                     try!(w.write_u8(byte));
-//                 }
-//             },
-//         }
-//     }
-
-//     // Write length
-//     if tag.length < 0x80
-//     {
-//         // Use the short form
-//         try!(w.write_u8(tag.length as u8));
-//     }
-//     else
-//     {
-//         // Long form has to be used
-//         let mut count: u8 = 0;
-//         let mut len = tag.payload.len();
-//         // For each byte of length increase the count by one
-//         while {count += 1; len >>= 8; len > 0 }{}
-
-//         let count = count;
-//         // Write the amount of length bytes that will follow
-//         try!(w.write_u8(count));
-
-//         for i in (0..count).rev()
-//         {
-//             // Write length bytes, most significant to least
-//             // FIXME: This assumes little-endianess on the CPU
-//             let byte = (
-//                 // Zero out everything except the byte we care about and then shift
-//                 // so only one byte is left
-//                 (tag.payload.len() & (0xFF << i * 8)) >> i * 8
-//                 ) as u8;
-
-//             // Write the length bytes sequentially
-//             try!(w.write_u8(byte))
-//         }
-//     }
-
-//     // Finally, write the payload
-//     match tag.payload
-//     {
-//         Payload::Primitive(ref value) =>
-//         {
-//             try!(w.write_all(value))
-//         },
-//         Payload::Constructed(ref tags) =>
-//         {
-//             // Recurse into each tag and let it write ittag
-//             for tag in tags
-//             {
-//                 try!(tag.write(w));
-//             }
-//         },
-//     }
-
-//     // Everything worked :D
-//     Ok(())
-// } // write
-
 #[cfg(test)]
 mod test
 {
@@ -304,28 +173,22 @@ mod test
     #[test]
     fn encode_constructed_tag()
     {
-        let child = {
-            let tagtype = common::Type {
-                class: common::Class::ContextSpecific(0),
-                structure: common::Structure::Primitive
-            };
-
+        let child =
+        {
+            let class = common::Class::ContextSpecific(0);
             let pl = common::Payload::Primitive("Hello World!".to_string().into_bytes());
 
-            common::construct(tagtype, pl)
+            common::construct(class, pl)
         };
 
         println!("{:?}", child);
 
-        let parent = {
-            let tagtype = common::Type {
-                class: common::Class::Universal(common::UniversalTypes::Sequence),
-                structure: common::Structure::Constructed
-            };
-
+        let parent =
+        {
+            let class = common::Class::Universal(common::UniversalTypes::Sequence);
             let pl = common::Payload::Constructed(vec![child]);
 
-            common::construct(tagtype, pl)
+            common::construct(class, pl)
         };
 
         println!("{:?}", parent);
@@ -343,14 +206,10 @@ mod test
     {
 
         let tag = {
-            let tagtype = common::Type {
-                class: common::Class::ContextSpecific(1000),
-                structure: common::Structure::Primitive
-            };
-
+            let class = common::Class::ContextSpecific(1000);
             let pl = common::Payload::Primitive("second".to_string().into_bytes());
 
-            common::construct(tagtype, pl)
+            common::construct(class, pl)
         };
 
         let mut buf = Vec::<u8>::new();
@@ -364,37 +223,28 @@ mod test
     #[test]
     fn encode_long_length_tags()
     {
-        let name = {
-            let tagtype = common::Type {
-                class: common::Class::ContextSpecific(0),
-                structure: common::Structure::Primitive,
-            };
-
+        let name =
+        {
+            let class = common::Class::ContextSpecific(0);
             let pl = common::Payload::Primitive("JustALongTag".to_string().into_bytes());
 
-            common::construct(tagtype, pl)
+            common::construct(class, pl)
         };
 
-        let value = {
-            let tagtype = common::Type {
-                class: common::Class::ContextSpecific(1),
-                structure: common::Structure::Primitive,
-            };
-
+        let value =
+        {
+            let class = common::Class::ContextSpecific(1);
             let pl = common::Payload::Primitive("JustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTagJustALongTag".to_string().into_bytes());
 
-            common::construct(tagtype, pl)
+            common::construct(class, pl)
         };
 
-        let seq = {
-            let tagtype = common::Type {
-                class: common::Class::Universal(common::UniversalTypes::Sequence),
-                structure: common::Structure::Constructed,
-            };
-
+        let seq =
+        {
+            let class = common::Class::Universal(common::UniversalTypes::Sequence);
             let pl = common::Payload::Constructed(vec![name, value]);
 
-            common::construct(tagtype, pl)
+            common::construct(class, pl)
         };
 
         let mut buf = Vec::<u8>::new();
