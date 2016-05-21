@@ -1,6 +1,7 @@
 use ber;
 use ber::error::ASN1Error as Error;
 
+use std::io;
 use std::io::Write;
 
 use byteorder::BigEndian;
@@ -8,7 +9,44 @@ use byteorder::WriteBytesExt;
 
 use ber::common::{self, Tag};
 
-pub fn write(tag: common::Tag, mut w: &mut Write) -> ber::Result<()>
+pub struct Encoder<W>
+{
+    buf: W,
+}
+
+impl<W: io::Write> Encoder<W>
+{
+    pub fn from_writer(wtr: W) -> Encoder<io::BufWriter<W>>
+    {
+        Encoder::from_writer_raw(io::BufWriter::new(wtr))
+    }
+
+    pub fn from_writer_raw(wtr: W) -> Encoder<W>
+    {
+        Encoder
+        {
+            buf: wtr,
+        }
+    }
+
+    pub fn flush(&mut self) -> ber::Result<()>
+    {
+        try!(self.buf.flush());
+
+        Ok(())
+    }
+
+    pub fn encode(&mut self, tag: common::Tag) -> ber::Result<()>
+    {
+        try!(write_type(tag._type, &mut self.buf));
+        try!(write_length(tag._length, &mut self.buf));
+        try!(write_value(tag._value, &mut self.buf));
+
+        Ok(())
+    }
+}
+
+fn write(tag: common::Tag, mut w: &mut Write) -> ber::Result<()>
 {
     try!(write_type(tag._type, w));
     try!(write_length(tag._length, w));
