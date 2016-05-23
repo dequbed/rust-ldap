@@ -5,6 +5,7 @@ pub mod error;
 pub mod common;
 mod encoder;
 mod decoder;
+pub mod types;
 
 pub use self::encoder::Encoder;
 pub use self::decoder::Decoder;
