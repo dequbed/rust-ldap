@@ -1,17 +1,10 @@
 extern crate byteorder;
 
 pub mod ber;
-mod bind;
-// mod connection;
+pub mod bind;
+pub mod error;
+mod connection;
 
-#[cfg(test)]
-mod tests
-{
-    use super::*;
+pub use connection::LDAP;
 
-    #[test]
-    fn test_bind()
-    {
-        bind::ldap_bind_s
-    }
-}
+pub type Result<T> = std::result::Result<T, error::LDAPError>;

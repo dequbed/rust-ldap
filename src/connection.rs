@@ -1,195 +1,56 @@
-
 use std::io::prelude::*;
-use std::io;
 use std::net::{TcpStream, ToSocketAddrs};
 
-use ber::{Tag, Type, Class, Payload};
-// use search::{Entry, Scope, DerefAlias};
-use err::{LDAPResult, LDAPError};
+use std::io::{BufReader, BufWriter};
 
+use ber::{self, common};
+use ber::types::ASNType;
+use Result;
 
-pub struct LDAPConnection
+pub struct LDAP
 {
-    tcp_stream: TcpStream,
-    message_id: u8,
+    stream: TcpStream,
+    msgid: i32,
+    enc: ber::Encoder<BufWriter<TcpStream>>,
+    dec: ber::Decoder<BufReader<TcpStream>>,
 }
 
-impl Clone for LDAPConnection
+impl LDAP
 {
-    fn clone(&self) -> Self
+    pub fn connect<A: ToSocketAddrs>(addr: A) -> Result<LDAP>
     {
-        LDAPConnection::new(self.tcp_stream.peer_addr().unwrap()).unwrap()
-    }
+        let stream = try!(TcpStream::connect(addr));
+        let enc = ber::Encoder::from_writer(try!(stream.try_clone()));
+        let dec = ber::Decoder::from_reader(try!(stream.try_clone()));
 
-    fn clone_from(&mut self, source: &Self)
-    {
-        let tmp = LDAPConnection::new(source.tcp_stream.peer_addr().unwrap()).unwrap();
-        self.tcp_stream = tmp.tcp_stream;
-        self.message_id = 0u8;
-    }
-}
-
-impl LDAPConnection
-{
-    pub fn new<A: ToSocketAddrs>(address: A) -> LDAPResult<Self>
-    {
-        let tcp_stream = try!(TcpStream::connect(address));
-        Ok(LDAPConnection
+        Ok(LDAP
         {
-            tcp_stream: tcp_stream,
-            message_id: 0,
+            stream: stream,
+            enc: enc,
+            dec: dec,
+            msgid: 0,
         })
     }
 
-    /// Syncronously send a tag to the server
-    fn send_tag(&mut self, operation: Tag) -> io::Result<()>
+    pub fn send(&mut self, mut tag: common::Tag) -> Result<()>
     {
-        let message_id = Tag::new(
-            Class::Universal(Type::Integer),
-            Payload::Primitive(vec![self.message_id]),
-        );
+        let messageid = self.msgid.into_ber_universal();
 
-        let ldap_message = Tag::new(
-            Class::Universal(Type::Sequence),
-            Payload::Constructed(vec![message_id, operation]),
-        );
+        let tagvec = vec![messageid, tag];
 
-        // Reset this every bind operation
-        self.message_id += 1;
+        try!(self.enc.encode(&tagvec.into_ber_universal()));
 
-        try!(ldap_message.write(&mut self.tcp_stream));
+        self.enc.flush();
 
         Ok(())
     }
 
-    fn recv_tag(&mut self) -> LDAPResult<Tag>
+    pub fn read(&mut self) -> Result<common::Tag>
     {
-        let result = try!(Tag::read(&mut self.tcp_stream));
+        let tag = try!(self.dec.decode());
 
-        let mut tags = result.into_payload().into_inner_constructed().unwrap();
+        println!("{:?}", &tag);
 
-        Ok(tags.remove(1))
-    }
-
-    // fn try_read_tag(&mut self) -> Option<Tag>
-
-    pub fn simple_bind(&mut self, username: String, password: String) -> LDAPResult<()>
-    {
-        let version = Tag::new(
-            Class::Universal(Type::Integer),
-            Payload::Primitive(vec![0x3]));
-        let name = username.into_tag();
-        let mut authentication = password.into_tag();
-        authentication.set_class(Class::ContextSpecific(0x0));
-
-        let bind_request = Tag::new(
-            Class::Application(0),
-            Payload::Constructed(vec![version, name, authentication])
-        );
-
-        try!(self.send_tag(bind_request));
-        let response = try!(self.recv_tag());
-
-        if response.is_class(Class::Application(1))
-        {
-            let en = response.into_payload().into_inner_constructed().unwrap().remove(0);
-            return match en.into_payload()
-            {
-                Payload::Constructed(_) => Err(LDAPError::DecodingFailure),
-                Payload::Primitive(_) => Ok(()),
-            }
-        }
-
-        Err(LDAPError::BindFailed)
-    }
-
-    pub fn search(&mut self,
-                  base: String,
-                  scope: Scope,
-                  alias: DerefAlias,
-                  size_limit: i32,
-                  time_limit: i32,
-                  types_only: bool,
-                  filters: Tag, // TODO: Figure something out...
-                  attributes: Vec<String>
-           ) -> LDAPResult<Vec<Entry>>
-    {
-        let search_base = base.into_tag();
-        let scope = scope.into_tag();
-        let alias = alias.into_tag();
-        let size_limit = size_limit.into_tag();
-        let time_limit = time_limit.into_tag();
-        let types_only = types_only.into_tag();
-        // let filters = filters.into_tag();
-        let attributes = attributes.into_tag();
-
-        let search_request = Tag::new(Class::Application(3),
-                 Payload::Constructed(vec![
-                     search_base,
-                     scope,
-                     alias,
-                     size_limit,
-                     time_limit,
-                     types_only,
-                     filters,
-                     attributes
-                 ]));
-
-        try!(self.send_tag(search_request));
-
-        let mut results = Vec::<Entry>::new();
-
-        loop
-        {
-            let response = try!(self.recv_tag());
-            // Response is either Application(5) (Search Done) or Application(4) (Search Entry)
-            match response.class
-            {
-                Class::Application(4) =>
-                {
-                    let entry = try!(Entry::from_tag(response));
-                    results.push(entry);
-                },
-                Class::Application(5) => break,
-                _ => return Err(LDAPError::DecodingFailure),
-            }
-        }
-
-        Ok(results)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use search;
-
-    #[test]
-    fn bind()
-    {
-        let mut conn = LDAPConnection::new(("127.0.0.1", 3890)).unwrap();
-        conn.simple_bind("cn=root".to_string(), "secret".to_string()).unwrap();
-    }
-
-    #[test]
-    fn search()
-    {
-        let mut conn = LDAPConnection::new(("127.0.0.1", 3890)).unwrap();
-        conn.simple_bind("cn=root".to_string(), "secret".to_string()).unwrap();
-
-        let mut result = conn.search(
-            "o=example".to_string(),
-            search::Scope::WholeSubtree,
-            search::DerefAlias::NeverDerefAliases,
-            0i32,
-            0i32,
-            false,
-            search::equality_filter("objectClass".to_string(), "person".to_string()),
-            vec!["cn".to_string(), "desc".to_string(), "desd".to_string(), "dese".to_string()]
-        ).unwrap();
-
-        println!("{:?}", result);
-
-        assert!(result.remove(0) == search::Entry { dn: "o=example".to_string(), attributes: vec![] });
+        Ok(tag)
     }
 }
