@@ -44,6 +44,11 @@ impl<W: io::Write> Encoder<W>
 
         Ok(())
     }
+
+    pub fn into_writer(self) -> W
+    {
+        self.buf
+    }
 }
 
 fn write(tag: &common::Tag, mut w: &mut Write) -> ber::Result<()>
