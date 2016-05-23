@@ -1,16 +1,9 @@
-use prelude::*;
 use ber::common;
 
-use result::LDAPResult;
-
-pub struct BindResponse
-{
-    result: LDAPResult,
-    sasl_credentials: Option<String>,
-}
+use LDAP;
 
 /// Synchronous bind (only simple auth currently)
-pub fn ldap_bind_s(ld: &mut LDAP, dn: LDAPDN, password: String)
+pub fn ldap_bind_s(ld: &mut LDAP, dn: String, password: String)
 {
     let versiontag = {
         let class = common::Class::Universal(common::UniversalTypes::Integer);
