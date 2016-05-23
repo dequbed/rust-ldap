@@ -36,21 +36,21 @@ impl<W: io::Write> Encoder<W>
         Ok(())
     }
 
-    pub fn encode(&mut self, tag: common::Tag) -> ber::Result<()>
+    pub fn encode(&mut self, tag: &common::Tag) -> ber::Result<()>
     {
         try!(write_type(tag._type, &mut self.buf));
         try!(write_length(tag._length, &mut self.buf));
-        try!(write_value(tag._value, &mut self.buf));
+        try!(write_value(&tag._value, &mut self.buf));
 
         Ok(())
     }
 }
 
-fn write(tag: common::Tag, mut w: &mut Write) -> ber::Result<()>
+fn write(tag: &common::Tag, mut w: &mut Write) -> ber::Result<()>
 {
     try!(write_type(tag._type, w));
     try!(write_length(tag._length, w));
-    try!(write_value(tag._value, w));
+    try!(write_value(&tag._value, w));
 
     Ok(())
 }
@@ -156,16 +156,16 @@ fn write_length(mut length: u64, mut w: &mut Write) -> ber::Result<()>
     }
 }
 
-fn write_value(payload: common::Payload, mut w: &mut Write) -> ber::Result<()>
+fn write_value(payload: &common::Payload, mut w: &mut Write) -> ber::Result<()>
 {
-    match payload
+    match *payload
     {
         common::Payload::Primitive(ref value) =>
         {
             try!(w.write_all(value));
             Ok(())
         },
-        common::Payload::Constructed(tags) =>
+        common::Payload::Constructed(ref tags) =>
         {
             for tag in tags
             {
@@ -198,7 +198,7 @@ mod test
         let tag = common::construct(class, pl);
 
         let mut buf = Vec::<u8>::new();
-        super::write(tag, &mut buf).unwrap();
+        super::write(&tag, &mut buf).unwrap();
 
         println!("{:?}", buf);
 
@@ -229,7 +229,7 @@ mod test
         println!("{:?}", parent);
 
         let mut buf = Vec::<u8>::new();
-        super::write(parent, &mut buf);
+        super::write(&parent, &mut buf);
 
         println!("{:?}", buf);
 
@@ -248,7 +248,7 @@ mod test
         };
 
         let mut buf = Vec::<u8>::new();
-        super::write(tag, &mut buf);
+        super::write(&tag, &mut buf);
 
         println!("{:?}", buf);
 
@@ -283,7 +283,7 @@ mod test
         };
 
         let mut buf = Vec::<u8>::new();
-        super::write(seq, &mut buf);
+        super::write(&seq, &mut buf);
 
         println!("{:?}", buf);
         assert!(buf == vec![
