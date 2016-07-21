@@ -7,6 +7,7 @@ pub enum LDAPError
 {
     ASN1(ASN1Error),
     Io(io::Error),
+    Other,
 }
 
 impl fmt::Display for LDAPError
@@ -33,6 +34,7 @@ impl error::Error for LDAPError
         {
             LDAPError::ASN1(ref x) => error::Error::description(x),
             LDAPError::Io(ref x) => error::Error::description(x),
+            LDAPError::Other => "Error occured",
         }
     }
 }
