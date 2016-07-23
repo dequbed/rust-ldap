@@ -15,13 +15,9 @@ fn test_bind() {
 
     ldap_bind_s(&mut conn, "cn=root,dc=aicube,dc=renet".to_string(), "secret".to_string());
 
-    thread::sleep(Duration::new(1, 0));
+    thread::sleep_ms(2000);
 
-    conn.read();
+    let tag = conn.recv().unwrap();
 
     ldap_unbind(&mut conn);
-
-    thread::sleep(Duration::new(1, 0));
-
-    conn.read();
 }
