@@ -5,50 +5,27 @@ use std::io;
 use std::io::Write;
 
 use byteorder::BigEndian;
+use byteorder::ByteOrder;
 use byteorder::WriteBytesExt;
 
 use ber::common::{self, Tag};
 
-pub struct Encoder<W>
+pub fn encode(tag: common::Tag, msgid: i32) -> ber::Result<Vec<u8>>
 {
-    buf: W,
-}
+    let mut msgidvec: Vec<u8> = Vec::with_capacity(4);
+    try!(msgidvec.write_i32::<BigEndian>(msgid));
+    let msgidbuf = common::Payload::Primitive(msgidvec);
+    let msgidtag = common::construct(common::Class::Universal(common::UniversalTypes::Integer), msgidbuf);
 
-impl<W: io::Write> Encoder<W>
-{
-    pub fn from_writer(wtr: W) -> Encoder<io::BufWriter<W>>
-    {
-        Encoder::from_writer_raw(io::BufWriter::new(wtr))
-    }
+    let pl = common::Payload::Constructed(vec![msgidtag, tag]);
+    let envelope = common::construct(common::Class::Universal(common::UniversalTypes::Sequence), pl);
 
-    pub fn from_writer_raw(wtr: W) -> Encoder<W>
-    {
-        Encoder
-        {
-            buf: wtr,
-        }
-    }
+    let mut buffer: Vec<u8> = Vec::with_capacity(envelope.size as usize);
+    try!(write_type(envelope._type, &mut buffer));
+    try!(write_length(envelope._length, &mut buffer));
+    try!(write_value(&envelope._value, &mut buffer));
 
-    pub fn flush(&mut self) -> ber::Result<()>
-    {
-        try!(self.buf.flush());
-
-        Ok(())
-    }
-
-    pub fn encode(&mut self, tag: &common::Tag) -> ber::Result<()>
-    {
-        try!(write_type(tag._type, &mut self.buf));
-        try!(write_length(tag._length, &mut self.buf));
-        try!(write_value(&tag._value, &mut self.buf));
-
-        Ok(())
-    }
-
-    pub fn into_writer(self) -> W
-    {
-        self.buf
-    }
+    Ok(buffer)
 }
 
 fn write(tag: &common::Tag, mut w: &mut Write) -> ber::Result<()>

@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use ber::{common, Encoder, Decoder};
+use ber::{common};
 
 pub trait ASNType
 {
