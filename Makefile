@@ -1,16 +1,11 @@
-# Default to be built
-default: debug
-
-# Build a release candidate
-release:
-	cargo build --release
-
-# Build a debug candidate
 debug:
 	cargo build
+	cd protocol; $(MAKE) $(MFLAGS)
 
-test:
-	cargo test
+release:
+	cargo build --release
+	cd protocol; $(MAKE) $(MFLAGS) release
 
-bench:
-	cargo bench
+clean:
+	cargo clean
+	cd protocol; $(MAKE) $(MFLAGS) clean
