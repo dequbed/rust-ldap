@@ -58,6 +58,7 @@ Implemeting RFC 4515 Search Filter.
 
 Example of a Search filter: `(& (objectClass=person) (| (cn=Username) (SAMAccountName=Username)))`.
 
+Not yet written either.
 
 ## License
 
