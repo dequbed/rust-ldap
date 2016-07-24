@@ -1,9 +1,11 @@
-use ber::common;
+//! Bind / Unbind helper functions
+
+use protocol::ber::common;
 
 use LDAP;
 
-/// Synchronous bind (only simple auth currently)
-pub fn ldap_bind_s(ld: &mut LDAP, dn: String, password: String)
+/// Send bind request (only simple auth currently)
+pub fn ldap_bind(ld: &mut LDAP, dn: String, password: String)
 {
     let versiontag = {
         let class = common::Class::Universal(common::UniversalTypes::Integer);
@@ -33,9 +35,10 @@ pub fn ldap_bind_s(ld: &mut LDAP, dn: String, password: String)
         common::construct(class, pl)
     };
 
-    ld.send(bindrequest);
+    let _ = ld.send(bindrequest);
 }
 
+/// Send unbind request
 pub fn ldap_unbind(ld: &mut LDAP)
 {
     let unbindrequest = {
@@ -45,5 +48,5 @@ pub fn ldap_unbind(ld: &mut LDAP)
         common::construct(class, pl)
     };
 
-    ld.send(unbindrequest);
+    let _ = ld.send(unbindrequest);
 }
