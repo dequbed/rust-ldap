@@ -8,13 +8,14 @@ use ber::types::ASNType;
 
 pub type Result<T> = std::result::Result<T, error::LDAPError>;
 
-pub fn build_envelope(msgid: i32, protocolOp: common::Tag, controls: Option<common::Tag>) -> common::Tag
+pub fn construct_envelope(msgid: i32, protocolOp: common::Tag, controls: Option<common::Tag>) -> common::Tag
 {
     let msgidtag = msgid.into_ber_universal();
 
 
-    let plvec = if controls.is_some() {
-        vec![msgidtag, protocolOp, controls.unwrap()] }
+    let plvec = if let Some(controls) = controls {
+        vec![msgidtag, protocolOp, controls]
+    }
     else {
         vec![msgidtag, protocolOp]
     };
@@ -22,7 +23,7 @@ pub fn build_envelope(msgid: i32, protocolOp: common::Tag, controls: Option<comm
     plvec.into_ber_universal()
 }
 
-pub fn unwrap_envelope(envelope: common::Tag) -> Result<(i32, common::Tag, Option<common::Tag>)>
+pub fn deconstruct_envelope(envelope: common::Tag) -> Result<(i32, common::Tag, Option<common::Tag>)>
 {
     let common::Tag { _value, .. } = envelope;
     let mut tagvec = match _value {
