@@ -1,5 +1,5 @@
 [package]
-name = "ldap-protocol"
+name = "ldap_protocol"
 version = "0.0.4"
 authors = [ "Dean Davis <dean4devil@paranoidlabs.org>" ]
 

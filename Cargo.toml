@@ -4,3 +4,5 @@ version = "0.1.0"
 authors = ["Dean4Devil <dean4devil@paranoidlabs.org>"]
 
 [dependencies]
+ldap_protocol = { path = "protocol/", version = "^0" }
+ldap_client = { path = "client/", version = "^0" }

@@ -1,0 +1,14 @@
+# Ignore vim swapfiles
+*.swp
+*.vim
+
+# Exuberant Ctags
+tags
+
+# Ignore build directory
+/build/
+/target/
+
+Cargo.lock
+
+/rfcs/
