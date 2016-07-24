@@ -15,7 +15,7 @@ use std::net::ToSocketAddrs;
 use std::io::{Read, Write};
 
 use protocol::ber::{self, common};
-use protocol::Result;
+pub use protocol::Result;
 
 pub mod bind;
 
@@ -56,7 +56,7 @@ impl LDAP
         Ok(())
     }
 
-    fn recv(&mut self) -> Result<common::Tag>
+    pub fn recv(&mut self) -> Result<common::Tag>
     {
         let mut buf = [0; 500];
 
