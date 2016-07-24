@@ -1,59 +1,45 @@
 extern crate byteorder;
 
 pub mod ber;
-pub mod bind;
 pub mod error;
 
-use std::net::{ToSocketAddrs, TcpStream};
-use std::io::{Read, Write};
-use std::thread;
-
 use ber::common;
+use ber::types::ASNType;
 
 pub type Result<T> = std::result::Result<T, error::LDAPError>;
 
-// #[derive(Debug)]
-pub struct LDAP
+pub fn build_envelope(msgid: i32, protocolOp: common::Tag, controls: Option<common::Tag>) -> common::Tag
 {
-    // TODO: Later abstract over io::Read / io::Write
-    stream: TcpStream,
+    let msgidtag = msgid.into_ber_universal();
 
-    msgid: i32,
+
+    let plvec = if controls.is_some() {
+        vec![msgidtag, protocolOp, controls.unwrap()] }
+    else {
+        vec![msgidtag, protocolOp]
+    };
+
+    plvec.into_ber_universal()
 }
 
-impl LDAP
+pub fn unwrap_envelope(envelope: common::Tag) -> Result<(i32, common::Tag, Option<common::Tag>)>
 {
-    pub fn connect<A: ToSocketAddrs>(addr: A) -> Result<LDAP>
-    {
-        let stream = try!(TcpStream::connect(addr));
-        stream.set_read_timeout(None);
+    let common::Tag { _value, .. } = envelope;
+    let mut tagvec = match _value {
+        common::Payload::Constructed(e) => e,
+        common::Payload::Primitive(_) => { return Err(error::LDAPError::Protocol) },
+    };
 
-        Ok(LDAP
-        {
-            stream: stream,
-            msgid: 0,
-        })
-    }
+    if tagvec.len() < 3 || tagvec.len() > 2 { return Err(error::LDAPError::Protocol) }
 
-    pub fn send(&mut self, tag: common::Tag) -> Result<()>
-    {
-        println!("Sending tag: {:?}", tag);
-        let tagbuf = try!(ber::encode(tag, self.msgid));
-        try!(self.stream.write(tagbuf.as_slice()));
+    let mut msgidtag = tagvec.pop().unwrap();
+    let protocolOp = tagvec.pop().unwrap();
+    let controls = tagvec.pop();
 
-        Ok(())
-    }
+    let msgid = match i32::from_tag(&mut msgidtag) {
+        Some(e) => e,
+        None => return Err(error::LDAPError::Protocol),
+    };
 
-    pub fn recv(&mut self) -> Result<common::Tag>
-    {
-        let mut buf = [0; 500];
-
-        let readamount = try!(self.stream.read(&mut buf));
-        println!("read: {}", readamount);
-
-        let tag = try!(ber::decode(&mut buf));
-        println!("Received tag: {:?}", tag);
-
-        Ok(tag)
-    }
+    Ok((msgid, protocolOp, controls))
 }

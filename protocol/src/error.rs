@@ -7,6 +7,7 @@ pub enum LDAPError
 {
     ASN1(ASN1Error),
     Io(io::Error),
+    Protocol,
     Other,
 }
 
@@ -34,6 +35,7 @@ impl error::Error for LDAPError
         {
             LDAPError::ASN1(ref x) => error::Error::description(x),
             LDAPError::Io(ref x) => error::Error::description(x),
+            LDAPError::Protocol => "Received ASN1 structure is not valid RFC4511",
             LDAPError::Other => "Error occured",
         }
     }
