@@ -35,7 +35,7 @@ pub struct LDAP
 impl LDAP
 {
 
-    /// Connect to the LDAP-Server found at `addr` using plain unencrypted TLS
+    /// Connect to the LDAP-Server found at `addr` using plain unencrypted TCP
     pub fn connect<A: ToSocketAddrs>(addr: A) -> Result<LDAP>
     {
         let stream = try!(TcpStream::connect(addr));
