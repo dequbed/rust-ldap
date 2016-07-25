@@ -1,6 +1,6 @@
 [package]
 name = "ldap_client"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Dean4Devil <dean4devil@paranoidlabs.org>"]
 
 description = "Pure Rust LDAP Client Library"

@@ -1,6 +1,6 @@
 [package]
 name = "ldap_protocol"
-version = "0.0.4"
+version = "0.1.0"
 authors = [ "Dean Davis <dean4devil@paranoidlabs.org>" ]
 
 description = "Pure Rust implementation of RFC4511 (You probably want ldap_client instead of this)"
