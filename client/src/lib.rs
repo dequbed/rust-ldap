@@ -19,6 +19,7 @@ use protocol::ber::{self, common};
 pub use protocol::Result;
 
 pub mod bind;
+mod queue;
 
 /// Core LDAP struct
 ///
