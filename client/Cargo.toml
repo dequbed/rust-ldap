@@ -15,4 +15,4 @@ license = "MIT/Apache-2.0"
 name = "ldap_client"
 
 [dependencies]
-ldap_protocol = { path = "../protocol/", version = "^0" }
+ldap_protocol = { path = "../protocol/", version = "^0.1" }
