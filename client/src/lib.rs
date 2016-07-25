@@ -8,6 +8,7 @@
 
 #[doc(no_inline)]
 extern crate ldap_protocol as protocol;
+extern crate mio;
 
 use std::net::TcpStream;
 use std::net::ToSocketAddrs;
