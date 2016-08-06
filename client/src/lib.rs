@@ -28,7 +28,7 @@ mod queue;
 #[derive(Debug)]
 pub struct LDAP
 {
-    // TODO: Later abstract over io::Read / io::Write
+    // TODO: Later abstract over io::Read / io::Write (for LDAPS and LDAPI implementation)
     stream: TcpStream,
 
     msgid: i32,
