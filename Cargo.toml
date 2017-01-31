@@ -1,9 +1,9 @@
 [package]
 name = "ldap"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Dean Davis <dean4devil@paranoidlabs.org>"]
 
-description = "Pure Rust LDAP Libraries"
+description = "Pure Rust LDAP Implementation (Not abandonware anymore!)"
 repository = "https://github.com/dean4devil/rust-ldap"
 readme = "README.md"
 
@@ -12,5 +12,10 @@ keywords = ["ldap", "libldap"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
-ldap_protocol = { path = "protocol/", version = "^0" }
-ldap_client = { path = "client/", version = "^0" }
+log = "0.3.6"
+futures = "0.1"
+tokio-core = "0.1"
+tokio-proto = "0.1"
+byteorder = "1.0.0"
+
+asnom = { git = "https://github.com/Dean4Devil/asnom.git" }

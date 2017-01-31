@@ -1,16 +1,27 @@
-//! LDAP Crate
-//!
-//! This crate is a meta-crate. It's sole purpose is to re-export symbols from
-//! its subcrates.
-//!
-//! `ldap_protocol` implements structures according to RFC4511. You will most
-//! likely never use this crate directly but use the abstractions offered by
-//! ldap_client or ldap_server.
-//!
-//! `ldap_client` is an abstraction over the pure protocol functions. If you
-//! want to make your project LDAP-Aware you will most likely want to use that
-//! crate instead.
+extern crate asnom;
 
+extern crate futures;
+extern crate tokio_core;
+extern crate tokio_proto;
 
-extern crate ldap_protocol as protocol;
-extern crate ldap_client as client;
+extern crate byteorder;
+
+#[macro_use]
+extern crate log;
+
+mod codec;
+
+use std::io;
+use tokio_core::reactor::Core;
+
+struct LDAP {
+    reactor: Core,
+}
+
+impl LDAP {
+    pub fn new() -> io::Result<LDAP> {
+        let core = try!(Core::new());
+
+        Ok(LDAP { reactor: core })
+    }
+}
