@@ -17,5 +17,6 @@ futures = "0.1"
 tokio-core = "0.1"
 tokio-proto = "0.1"
 byteorder = "1.0.0"
+tokio-service = { git = "https://github.com/tokio-rs/tokio-service" }
 
 asnom = { git = "https://github.com/Dean4Devil/asnom.git" }

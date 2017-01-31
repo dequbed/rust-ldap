@@ -10,6 +10,7 @@ extern crate byteorder;
 extern crate log;
 
 mod codec;
+mod proto;
 
 use std::io;
 use tokio_core::reactor::Core;
