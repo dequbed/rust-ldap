@@ -1,6 +1,6 @@
+use tokio_core::io::{Io, Codec, EasyBuf, Framed};
+use tokio_proto::multiplex::{RequestId, ServerProto, ClientProto};
 use std::io;
-use std::str;
-use std::default::Default;
 
 use asnom::common;
 use asnom::IResult;
@@ -8,11 +8,6 @@ use asnom::structures::{Tag, Integer, Sequence, ASNTag};
 
 use asnom::parse::{parse_tag, parse_uint};
 use asnom::write;
-
-use tokio_core::io::{Codec, EasyBuf, Framed};
-use tokio_proto::multiplex::RequestId;
-
-use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
 
 pub struct LdapCodec;
 pub struct LdapProto;
@@ -22,9 +17,8 @@ impl Codec for LdapCodec {
     type Out = (RequestId, Tag);
 
     fn decode(&mut self, buf: &mut EasyBuf) -> Result<Option<(RequestId, Tag)>, io::Error> {
-        println!("DECODING!");
         match parse_tag(buf.as_slice()) {
-            IResult::Incomplete(e) => { Ok(None)},
+            IResult::Incomplete(_) => { Ok(None)},
             IResult::Error(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
             IResult::Done(_, i) => {
                 if let Some(mut tags) = i.match_id(16u64).and_then(|x| x.expect_constructed()) {
@@ -43,19 +37,20 @@ impl Codec for LdapCodec {
     }
 
     fn encode(&mut self, item: (RequestId, Tag), into: &mut Vec<u8>) -> io::Result<()> {
-        let (id, protocolOP) = item;
+        let (id, protocol_op) = item;
         let outtag = Tag::Sequence(Sequence {
             inner: vec![
                 Tag::Integer(Integer {
                     inner: id as i64,
                     .. Default::default()
                 }),
-                protocolOP,
+                protocol_op,
             ],
             .. Default::default()
         });
 
-        try!(write::encode_into(into, outtag.into_structure()));
+        let outstruct = outtag.into_structure();
+        try!(write::encode_into(into, outstruct));
         Ok(())
     }
 }
