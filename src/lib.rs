@@ -20,7 +20,7 @@ use std::default::Default;
 use std::net::SocketAddr;
 
 use futures::Future;
-use tokio_core::reactor::{Core, Handle};
+use tokio_core::reactor::Core;
 use tokio_core::net::TcpStream;
 use tokio_proto::TcpClient;
 use tokio_proto::multiplex::ClientService;
