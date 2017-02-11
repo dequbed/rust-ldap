@@ -19,4 +19,4 @@ tokio-core = "0.1"
 tokio-proto = "0.1"
 tokio-service = "0.1"
 
-asnom = { git = "https://github.com/Dean4Devil/asnom.git" }
+asnom = "0.1.0"
