@@ -11,6 +11,7 @@ extern crate byteorder;
 #[macro_use]
 extern crate log;
 
-mod protocol;
 mod ldap;
+mod sync;
+mod protocol;
 mod service;
