@@ -15,3 +15,8 @@ mod ldap;
 mod sync;
 mod protocol;
 mod service;
+
+mod bind;
+
+pub use ldap::Ldap;
+pub use sync::LdapSync;
