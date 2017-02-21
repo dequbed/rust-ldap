@@ -19,5 +19,5 @@ tokio-core = "0.1"
 tokio-proto = "0.1"
 tokio-service = "0.1"
 
-asnom = "0.1.0"
+asnom = { git = "https://github.com/dequbed/asnom.git" }
 rfc4515 = { git = "https://github.com/dequbed/rfc4515.git" }
