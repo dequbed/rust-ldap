@@ -1,40 +1,63 @@
 use std::io;
 use std::net::SocketAddr;
 
-use tokio_core::io::Io;
+use asnom::structures::Tag;
+
+use futures::Future;
+
+use tokio_core::io::{Io, Framed};
 use tokio_core::net::TcpStream;
-use tokio_core::reactor::Core;
+use tokio_core::reactor::Handle;
 
-use service::LdapService;
+use tokio_service::Service;
 
-pub struct Ldap<T> {
-    transport: LdapService<T>,
+use tokio_proto::util::client_proxy::ClientProxy;
+use tokio_proto::TcpClient;
+
+use protocol::LdapProto;
+use service::{LdapMessage, TokioMessage};
+
+pub struct Ldap {
+    inner: ClientTypeMap<ClientProxy<TokioMessage, TokioMessage, io::Error>>,
 }
 
-pub struct LdapSync<T> {
-    inner: Ldap<T>,
-    core: Core
-}
-
-impl<T: Io> Ldap<T> {
-    pub fn new(transport: T) -> Ldap<T> {
-        Ldap { transport: transport }
+impl Ldap {
+    pub fn connect(addr: &SocketAddr, handle: &Handle) ->
+        Box<Future<Item = Ldap, Error = io::Error>> {
+        let ret = TcpClient::new(LdapProto)
+            .connect(addr, handle)
+            .map(|client_proxy| {
+                let typemap = ClientTypeMap { inner: client_proxy };
+                Ldap { inner: typemap }
+            });
+        Box::new(ret)
     }
 }
 
-impl LdapSync<TcpStream> {
-    pub fn connect(addr: &SocketAddr) -> Result<LdapSync<TcpStream>, io::Error> {
-        // TODO better error handling
-        let mut core = Core::new().unwrap();
-        let handle = core.handle();
+impl Service for Ldap {
+    type Request = Tag;
+    type Response = LdapMessage;
+    type Error = io::Error;
+    type Future = Box<Future<Item = LdapMessage, Error = io::Error>>;
 
-        let client_fut = TcpStream::connect(addr, handle);
+    fn call(&self, req: Self::Request) -> Self::Future {
+        self.inner.call(LdapMessage::Once(req))
+    }
+}
 
-        let stream = try!(core.run(client_fut));
+struct ClientTypeMap<T> {
+    inner: T
+}
 
-        LdapSync::<TcpStream> {
-            inner:  Ldap::new(stream),
-            core: core,
-        }
+impl<T> Service for ClientTypeMap<T>
+    where T: Service<Request = TokioMessage, Response = TokioMessage, Error = io::Error>,
+          T::Future: 'static {
+    type Request = LdapMessage;
+    type Response = LdapMessage;
+    type Error = io::Error;
+    type Future = Box<Future<Item = LdapMessage, Error = io::Error>>;
+
+    fn call(&self, req: LdapMessage) -> Self::Future {
+        Box::new(self.inner.call(req.into()).map(LdapMessage::from))
     }
 }
