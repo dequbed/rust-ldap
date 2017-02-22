@@ -2,8 +2,9 @@ use std::io;
 use std::net::SocketAddr;
 
 use ldap::Ldap;
+use search::{Scope, DerefAliases, SearchEntry};
 
-use tokio_core::reactor::{Core, Handle};
+use tokio_core::reactor::Core;
 
 pub struct LdapSync {
     inner: Ldap,
@@ -24,5 +25,14 @@ impl LdapSync {
 
     pub fn simple_bind(&mut self, dn: String, pw: String) -> io::Result<bool> {
         self.core.run(self.inner.simple_bind(dn, pw))
+    }
+
+    pub fn search(&mut self,
+                  base: String,
+                  scope: Scope,
+                  deref: DerefAliases,
+                  typesonly: bool,
+                  filter: String) -> io::Result<Vec<SearchEntry>> {
+        self.core.run(self.inner.search(base, scope, deref, typesonly, filter))
     }
 }

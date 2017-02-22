@@ -17,6 +17,9 @@ mod protocol;
 mod service;
 
 mod bind;
+mod search;
 
 pub use ldap::Ldap;
 pub use sync::LdapSync;
+
+pub use search::{Scope, DerefAliases, SearchEntry};
