@@ -33,7 +33,7 @@ impl Codec for LdapCodec {
                                     .and_then(|x| x.match_id(2u64))
                                     .and_then(|x| x.expect_primitive()).unwrap();
                     if let IResult::Done(_, id) = parse_uint(msgid.as_slice()) {
-                        match protoop.id {
+                        return match protoop.id {
                             // SearchResultEntry
                             4 => Ok(Some(Frame::Body {
                                 id: id as u64,
