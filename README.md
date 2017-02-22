@@ -3,7 +3,15 @@ rust-ldap
 
 A Pure-Rust LDAP Library using Tokio & Futures.
 
-[![Documentation](https://docs.rs/ldap/badge.svg)](https://docs.rs/ldap)
+<p align="center">
+  <a href="https://crates.io/crates/ldap">
+      <img src="https://img.shields.io/crates/d/ldap.svg" alt="rust-ldap on crates.io">
+  </a>
+  <a href="https://docs.rs/ldap">
+      <img src="https://docs.rs/ldap/badge.svg" alt="docs: release versions documentation">
+  </a>
+</p>
+
 
 ### RFC compliance
 
