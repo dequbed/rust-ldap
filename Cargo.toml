@@ -1,7 +1,7 @@
 [package]
 name = "ldap"
 version = "0.2.0"
-authors = ["Dean Davis <dean4devil@paranoidlabs.org>"]
+authors = ["Gregor Reitzenstein <dean4devil@paranoidlabs.org>"]
 
 description = "Pure Rust LDAP Implementation (Not abandonware anymore!)"
 repository = "https://github.com/dequbed/rust-ldap"
