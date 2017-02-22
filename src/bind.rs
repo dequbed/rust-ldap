@@ -1,7 +1,6 @@
 use std::io;
 
 use asnom::structures::{Tag, Sequence, Integer, OctetString};
-use asnom::structure::StructureTag;
 
 use asnom::common::TagClass::*;
 

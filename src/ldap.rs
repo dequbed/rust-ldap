@@ -5,8 +5,6 @@ use asnom::structures::Tag;
 
 use futures::Future;
 
-use tokio_core::io::{Io, Framed};
-use tokio_core::net::TcpStream;
 use tokio_core::reactor::Handle;
 
 use tokio_service::Service;
