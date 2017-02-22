@@ -13,6 +13,8 @@
   </a>
 </p>
 
+Feel free to join #rust-ldap on Mozilla IRC for questions & general chat.
+
 
 ### RFC compliance
 
