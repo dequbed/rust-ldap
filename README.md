@@ -6,6 +6,8 @@ A Pure-Rust LDAP Library.
 The `ldap` crate itself is a meta-crate only exporting symbols from `ldap_protocol`, `ldap_client`,
 `ldap_server` and `ldap_rfc4515`.
 
+[![Documentation](https://docs.rs/ldap/badge.svg)](https://docs.rs/ldap)
+
 ### ldap_protocol
 
 This crate implements the low-level workings of RFC4511 and ASN.1's BER, and some shared structures

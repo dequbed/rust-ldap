@@ -5,6 +5,7 @@ authors = ["Dean Davis <dean4devil@paranoidlabs.org>"]
 
 description = "Pure Rust LDAP Implementation (Not abandonware anymore!)"
 repository = "https://github.com/dequbed/rust-ldap"
+documentation = "https://docs.rs/ldap"
 readme = "README.md"
 
 keywords = ["ldap", "libldap"]
