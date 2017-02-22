@@ -1,7 +1,9 @@
 <p align="center">
-    <h1>rust-ldap</h1>
+  <h1>rust-ldap</h1>
+  <br>
 
-  <p>A Pure-Rust LDAP Library using Tokio & Futures.</p>
+  A Pure-Rust LDAP Library using Tokio & Futures.
+  <br>
 
   <a href="https://crates.io/crates/ldap">
       <img src="https://img.shields.io/crates/d/ldap.svg" alt="rust-ldap on crates.io">
