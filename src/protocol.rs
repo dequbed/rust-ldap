@@ -1,125 +1,101 @@
+use tokio_core::io::{Io, Codec, EasyBuf, Framed};
+use std::io;
 
+use futures::sync::mpsc;
+use futures::{Future, Stream, Poll};
 
-enum ProtocolOP
-{
-    bindRequest = 0,
-    bindResponse,
-    unbindRequest,
-    searchRequest,
-    searchResEntry,
-    searchResDone,
-    searchResRef,
-    modifyRequest,
-    modifyResponse,
-    addRequest,
-    addResponse,
-    delRequest,
-    delResponse,
-    modDNRequest,
-    modDNResponse,
-    compareRequest,
-    compareResponse,
-    abandonRequest,
-    extendedReq,
-    extendedResp,
-    intermediateResponse,
+use tokio_proto::streaming::{Body, Message};
+use tokio_proto::streaming::multiplex::{Frame, ClientProto, RequestId};
+
+use asnom::common;
+use asnom::IResult;
+use asnom::structures::{Tag, Integer, Sequence, ASNTag};
+use asnom::structure::StructureTag;
+
+use asnom::parse::{parse_tag, parse_uint};
+use asnom::write;
+
+pub struct LdapCodec;
+
+impl Codec for LdapCodec {
+    type In = Frame<Tag, Tag, io::Error>;
+    type Out = Frame<Tag, Tag, io::Error>;
+
+    fn decode(&mut self, buf: &mut EasyBuf) -> Result<Option<Self::In>, io::Error> {
+        match parse_tag(buf.as_slice()) {
+            IResult::Incomplete(_) => { Ok(None)},
+            IResult::Error(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
+            IResult::Done(_, i) => {
+                if let Some(mut tags) = i.match_id(16u64).and_then(|x| x.expect_constructed()) {
+                    let protoop = tags.pop().unwrap();
+                    let msgid: Vec<u8> = tags.pop().unwrap()
+                                    .match_class(common::TagClass::Universal)
+                                    .and_then(|x| x.match_id(2u64))
+                                    .and_then(|x| x.expect_primitive()).unwrap();
+                    if let IResult::Done(_, id) = parse_uint(msgid.as_slice()) {
+                        return match protoop.id {
+                            // SearchResultEntry
+                            4 => Ok(Some(Frame::Body {
+                                id: id as u64,
+                                chunk: Some(Tag::StructureTag(protoop)),
+                            })),
+                            // SearchResultDone
+                            5 => Ok(Some(Frame::Body {
+                                id: id as u64,
+                                chunk: None,
+                            })),
+                            // Any other Message
+                            _ => Ok(Some(Frame::Message {
+                                id: id as u64,
+                                message: Tag::StructureTag(protoop),
+                                body: false,
+                                solo: false,
+                            })),
+                        }
+                    }
+                }
+                return Err(io::Error::new(io::ErrorKind::Other, "Invalid (RequestId, Tag) received."));
+            }
+        }
+    }
+
+    fn encode(&mut self, msg: Self::Out, into: &mut Vec<u8>) -> io::Result<()> {
+        match msg {
+            Frame::Message {message, id, body, solo} => {
+                let outtag = Tag::Sequence(Sequence {
+                    inner: vec![
+                        Tag::Integer(Integer {
+                            inner: id as i64,
+                            .. Default::default()
+                        }),
+                        message,
+                    ],
+                    .. Default::default()
+                });
+
+                let outstruct = outtag.into_structure();
+                try!(write::encode_into(into, outstruct));
+                Ok(())
+            },
+            _ => unimplemented!(),
+        }
+    }
 }
 
-enum resultCode
-{
-    success = 0,
-    operationError = 1,
-    protocolError = 2,
-    timeLimitExceeded = 3,
-    sizeLimitExceeded = 4,
-    compareFalse = 5,
-    compareTrue = 6,
-    authMethodNotSupported = 7,
-    strongerAuthRequired = 8,
-    /* 9 reserved */
-    referral = 10,
-    adminLimitExceeded = 11,
-    unavailableCriticalExtension = 12,
-    confidentialityRequired = 13,
-    saslBindInProgress = 14,
-    /* 15 undefined */
-    noSuchAttribute = 16,
-    undefinedAttributeType = 17,
-    inappropriateMatching = 18,
-    constraintViolation = 19,
-    attributeOrValueExists = 20,
-    invalidAttributeSyntax = 21,
-    /* 22-31 unused */
-    noSuchObject = 32,
-    aliasProblem = 33,
-    invalidDNSyntax = 34,
-    /* 35 reserved for undefined isLeaf */
-    aliasDereferencingProblem = 36,
-    /* 37-47 unused */
-    inappropriateAuthentication = 48,
-    invalidCredentials = 49,
-    insufficientAccessRights = 50,
-    busy = 51,
-    unavailable = 52,
-    unwillingToPerform = 53,
-    loopDetect = 54,
-    /* 55-63 unused */
-    namingViolation = 64,
-    objectClassViolation = 65,
-    notAllowedOnNonLeaf = 66,
-    notAllowedOnRDN = 67,
-    entryAlreadyExists = 68,
-    objectClassModsProhibited = 69,
-    /* 70 reserved for CLDAP */
-    affectsMultipleDSAs = 71,
-    /* 72-79 unused */
-    other = 80,
+pub struct LdapProto;
+
+impl<T: Io + 'static> ClientProto<T> for LdapProto {
+    type Request = Tag;
+    type RequestBody = Tag;
+    type Response = Tag;
+    type ResponseBody = Tag;
+    type Error = io::Error;
+
+    /// `Framed<T, LineCodec>` is the return value of `io.framed(LineCodec)`
+    type Transport = Framed<T, LdapCodec>;
+    type BindTransport = Result<Self::Transport, io::Error>;
+
+    fn bind_transport(&self, io: T) -> Self::BindTransport {
+        Ok(io.framed(LdapCodec))
+    }
 }
-// impl resultCode
-// {
-//     pub fn from_u8(v: u8) -> resultCode
-//     {
-//         match v
-//         {
-//    // success = 0,
-//     // operationError = 1,
-//     // protocolError = 2,
-//     // timeLimitExceeded = 3,
-//     // sizeLimitExceeded = 4,
-//     // compareFalse = 5,
-//     // compareTrue = 6,
-//     // authMethodNotSupported = 7,
-//     // strongerAuthRequired = 8,
-//     // referral = 10,
-//     // adminLimitExceeded = 11,
-//     // unavailableCriticalExtension = 12,
-//     // confidentialityRequired = 13,
-//     // saslBindInProgress = 14,
-//     // noSuchAttribute = 16,
-//     // undefinedAttributeType = 17,
-//     // inappropriateMatching = 18,
-//     // constraintViolation = 19,
-//     // attributeOrValueExists = 20,
-//     // invalidAttributeSyntax = 21,
-//     // noSuchObject = 32,
-//     // aliasProblem = 33,
-//     // invalidDNSyntax = 34,
-//     // aliasDereferencingProblem = 36,
-//     // inappropriateAuthentication = 48,
-//     // invalidCredentials = 49,
-//     // insufficientAccessRights = 50,
-//     // busy = 51,
-//     // unavailable = 52,
-//     // unwillingToPerform = 53,
-//     // loopDetect = 54,
-//     // namingViolation = 64,
-//     // objectClassViolation = 65,
-//     // notAllowedOnNonLeaf = 66,
-//     // notAllowedOnRDN = 67,
-//     // entryAlreadyExists = 68,
-//     // objectClassModsProhibited = 69,
-//     // affectsMultipleDSAs = 71,
-//     // other = 80,
-//         }
-//     }
-// }
