@@ -1,8 +1,8 @@
 use std::io;
 use std::collections::HashMap;
 
+use asnom::structure::StructureTag;
 use asnom::structures::{Tag, Sequence, Integer, OctetString, Boolean};
-
 use asnom::common::TagClass::*;
 
 use rfc4515::parse;
@@ -38,9 +38,55 @@ pub enum SearchEntry {
 }
 
 impl SearchEntry {
-    pub fn construct(_: Tag) -> SearchEntry {
-        SearchEntry::Reference(Vec::new())
+    pub fn construct(tag: Tag) -> SearchEntry {
+        match tag {
+            Tag::StructureTag(t) => {
+                match t.id {
+                    // Search Result Entry
+                    4 => {
+                        let mut tags = t.expect_constructed().unwrap();
+                        let attributes = tags.pop().unwrap();
+                        let object_name = tags.pop().unwrap();
+                        let object_name = String::from_utf8(object_name.expect_primitive().unwrap()).unwrap();
+
+                        let a = construct_attributes(attributes.expect_constructed().unwrap()).unwrap();
+
+                        SearchEntry::Object {
+                            object_name: object_name,
+                            attributes: a,
+                        }
+                    },
+                    // Search Result Reference
+                    19 => {
+                        // TODO actually handle this case
+                        SearchEntry::Reference(vec![])
+                    },
+                    _ => panic!("Search received a non-search tag!"),
+                }
+            }
+            _ => unimplemented!()
+        }
     }
+}
+
+fn construct_attributes(tags: Vec<StructureTag>) -> Option<HashMap<String, Vec<String>>> {
+    let mut map = HashMap::new();
+    for tag in tags.into_iter() {
+        let mut inner = tag.expect_constructed().unwrap();
+
+        let values = inner.pop().unwrap();
+        let valuev = values.expect_constructed().unwrap()
+                           .into_iter()
+                           .map(|t| t.expect_primitive().unwrap())
+                           .map(|v| String::from_utf8(v).unwrap())
+                           .collect();
+        let key = inner.pop().unwrap();
+        let keystr = String::from_utf8(key.expect_primitive().unwrap()).unwrap();
+
+        map.insert(keystr, valuev);
+    }
+
+    Some(map)
 }
 
 impl Ldap {
