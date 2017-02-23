@@ -1,6 +1,6 @@
 [package]
 name = "ldap"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Gregor Reitzenstein <dean4devil@paranoidlabs.org>"]
 
 description = "Pure Rust LDAP Implementation (Not abandonware anymore!)"
