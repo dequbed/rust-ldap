@@ -17,6 +17,14 @@ pub struct LdapMessageStream {
     inner: Body<Tag, io::Error>,
 }
 
+impl LdapMessageStream {
+    pub fn empty() -> LdapMessageStream {
+        LdapMessageStream {
+            inner: Body::empty()
+        }
+    }
+}
+
 impl Stream for LdapMessageStream {
     type Item = Tag;
     type Error = io::Error;

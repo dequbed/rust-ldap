@@ -66,11 +66,21 @@ impl Codec for LdapCodec {
                                     // SearchResultDone
                                     5 => {
                                         debug!("Received a search result done");
+                                        let seen_res_entry = self.search_seen.contains(&id);
                                         self.search_seen.remove(&id);
-                                        Ok(Some(Frame::Body {
-                                            id: id as u64,
-                                            chunk: None,
-                                        }))
+                                        if seen_res_entry {
+                                            Ok(Some(Frame::Body {
+                                                id: id as u64,
+                                                chunk: None,
+                                            }))
+                                        } else {
+                                            Ok(Some(Frame::Message {
+                                                id: id as u64,
+                                                message: Tag::StructureTag(protoop),
+                                                body: false,
+                                                solo: false,
+                                            }))
+                                        }
                                     },
                                     // Any other Message
                                     _ => {
@@ -93,7 +103,7 @@ impl Codec for LdapCodec {
                 }
             },
             &ConsumerState::Continue(_) => Ok(None),
-            &ConsumerState::Error(E) => Err(io::Error::from(io::ErrorKind::Other)),
+            &ConsumerState::Error(_e) => Err(io::Error::from(io::ErrorKind::Other)),
         }
     }
 
