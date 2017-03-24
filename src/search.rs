@@ -96,7 +96,8 @@ impl Ldap {
                     scope: Scope,
                     deref: DerefAliases,
                     typesonly: bool,
-                    filter: String) ->
+                    filter: String,
+                    attrs: Vec<String>) ->
         Box<Future<Item = Vec<SearchEntry>, Error = io::Error>> {
         let req = Tag::Sequence(Sequence {
             id: 3,
@@ -128,6 +129,8 @@ impl Ldap {
                    }),
                    parse(&filter).unwrap(),
                    Tag::Sequence(Sequence {
+                       inner: attrs.into_iter().map(|s|
+                            Tag::OctetString(OctetString { inner: s.into_bytes(), ..Default::default() })).collect(),
                        .. Default::default()
                    })
             ],

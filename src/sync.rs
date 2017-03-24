@@ -32,7 +32,8 @@ impl LdapSync {
                   scope: Scope,
                   deref: DerefAliases,
                   typesonly: bool,
-                  filter: String) -> io::Result<Vec<SearchEntry>> {
-        self.core.run(self.inner.search(base, scope, deref, typesonly, filter))
+                  filter: String,
+                  attrs: Vec<String>) -> io::Result<Vec<SearchEntry>> {
+        self.core.run(self.inner.search(base, scope, deref, typesonly, filter, attrs))
     }
 }
