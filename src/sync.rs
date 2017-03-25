@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use ldap::Ldap;
 use search::{Scope, DerefAliases, SearchEntry};
 
-use tokio_core::reactor::Core;
+use tokio_core::reactor::{Core, Handle};
 
 pub struct LdapSync {
     inner: Ldap,
@@ -12,12 +12,24 @@ pub struct LdapSync {
 }
 
 impl LdapSync {
-    pub fn connect(addr: &SocketAddr) -> Result<LdapSync, io::Error> {
+    pub fn connect(addr: &str) -> Result<LdapSync, io::Error> {
         // TODO better error handling
         let mut core = Core::new().unwrap();
         let handle = core.handle();
 
-        let ldapfut = Ldap::connect(addr, &handle);
+        let addr: SocketAddr = addr.parse().map_err(|_e| io::Error::new(io::ErrorKind::Other, "error parsing address"))?;
+        let ldapfut = Ldap::connect(&addr, &handle);
+        let ldap = try!(core.run(ldapfut));
+
+        Ok(LdapSync { inner: ldap, core: core })
+    }
+
+    pub fn connect_ssl(addr: &str) -> Result<LdapSync, io::Error> {
+        // TODO better error handling
+        let mut core = Core::new().unwrap();
+        let handle = core.handle();
+
+        let ldapfut = Ldap::connect_ssl(addr, &handle);
         let ldap = try!(core.run(ldapfut));
 
         Ok(LdapSync { inner: ldap, core: core })
