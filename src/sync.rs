@@ -12,13 +12,12 @@ pub struct LdapSync {
 }
 
 impl LdapSync {
-    pub fn connect(addr: &str) -> Result<LdapSync, io::Error> {
+    pub fn connect(addr: &SocketAddr) -> Result<LdapSync, io::Error> {
         // TODO better error handling
         let mut core = Core::new().unwrap();
         let handle = core.handle();
 
-        let addr: SocketAddr = addr.parse().map_err(|_e| io::Error::new(io::ErrorKind::Other, "error parsing address"))?;
-        let ldapfut = Ldap::connect(&addr, &handle);
+        let ldapfut = Ldap::connect(addr, &handle);
         let ldap = try!(core.run(ldapfut));
 
         Ok(LdapSync { inner: ldap, core: core })
