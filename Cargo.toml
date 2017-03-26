@@ -20,10 +20,10 @@ tokio-service = "0.1"
 tokio-tls = { version = "0.1.2", features = [ "tokio-proto" ] }
 
 [dependencies.asnom]
-path = "../asnom"
+git = "https://github.com/dequbed/asnom.git"
 
 [dependencies.rfc4515]
-path = "../rfc4515"
+git = "https://github.com/dequbed/rfc4515.git"
 
 [dev-dependencies]
 env_logger = "0.4.2"
