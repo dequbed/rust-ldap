@@ -17,7 +17,8 @@ pub fn main() {
                                   ldap::Scope::WholeSubtree,
                                   ldap::DerefAliases::Never,
                                   false,
-                                  "(objectClass=*)".to_string()));
+                                  "(objectClass=*)".to_string(),
+                                  vec![]));
 
     println!("Search Results: {:?}", search_results)
 }

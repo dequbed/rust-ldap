@@ -15,7 +15,8 @@ pub fn main() {
                                ldap::Scope::WholeSubtree,
                                ldap::DerefAliases::Never,
                                false,
-                               "(objectClass=*)".to_string());
+                               "(objectClass=*)".to_string(),
+                               vec![]);
         println!("Search result: {:?}", res2);
     } else {
         println!("Bind failed! :(");
