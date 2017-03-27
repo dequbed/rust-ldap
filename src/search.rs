@@ -11,7 +11,7 @@ use futures::{Future, stream, Stream};
 use tokio_service::Service;
 
 use ldap::Ldap;
-use service::LdapMessage;
+use service::{LdapMessage, LdapMessageStream};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Scope {
@@ -43,13 +43,14 @@ impl SearchEntry {
             Tag::StructureTag(t) => {
                 match t.id {
                     // Search Result Entry
-                    4 => {
+                    // Search Result Done (if the result set is empty)
+                    4|5 => {
                         let mut tags = t.expect_constructed().unwrap();
                         let attributes = tags.pop().unwrap();
                         let object_name = tags.pop().unwrap();
                         let object_name = String::from_utf8(object_name.expect_primitive().unwrap()).unwrap();
 
-                        let a = construct_attributes(attributes.expect_constructed().unwrap()).unwrap();
+                        let a = construct_attributes(attributes.expect_constructed().unwrap_or(vec![])).unwrap();
 
                         SearchEntry::Object {
                             object_name: object_name,
@@ -95,7 +96,8 @@ impl Ldap {
                     scope: Scope,
                     deref: DerefAliases,
                     typesonly: bool,
-                    filter: String) ->
+                    filter: String,
+                    attrs: Vec<String>) ->
         Box<Future<Item = Vec<SearchEntry>, Error = io::Error>> {
         let req = Tag::Sequence(Sequence {
             id: 3,
@@ -127,23 +129,27 @@ impl Ldap {
                    }),
                    parse(&filter).unwrap(),
                    Tag::Sequence(Sequence {
+                       inner: attrs.into_iter().map(|s|
+                            Tag::OctetString(OctetString { inner: s.into_bytes(), ..Default::default() })).collect(),
                        .. Default::default()
                    })
             ],
         });
 
         let fut = self.call(req).and_then(|res| {
-            match res {
+            let ostr = match res {
                 LdapMessage::Stream(first, body) => {
                     let fstr = stream::once(Ok(first));
-                    let ostr = fstr.chain(body);
-
-                    ostr.map(|x| SearchEntry::construct(x))
-                        .collect()
-                        .and_then(|x| Ok(x))
+                    fstr.chain(body)
                 },
-                _ => unimplemented!(),
-            }
+                LdapMessage::Once(first) => {
+                    let fstr = stream::once(Ok(first));
+                    fstr.chain(LdapMessageStream::empty())
+                },
+            };
+            ostr.map(|x| SearchEntry::construct(x))
+                .collect()
+                .and_then(|x| Ok(x))
         });
 
         Box::new(fut)
